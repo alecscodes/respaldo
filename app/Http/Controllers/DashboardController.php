@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\App;
 use App\Models\Backup;
 use App\Services\DiskSpaceService;
 use App\Services\StorageConverter;
@@ -33,6 +34,16 @@ class DashboardController extends Controller
                 ],
             ]);
 
+        $latestApps = App::where('user_id', auth()->id())
+            ->latest()
+            ->limit(5)
+            ->get()
+            ->map(fn ($app) => [
+                'id' => $app->id,
+                'name' => $app->name,
+                'created_at' => $app->created_at->toIso8601String(),
+            ]);
+
         return Inertia::render('Dashboard', [
             'backupDiskSpace' => [
                 'total' => $diskSpace['total'],
@@ -42,6 +53,7 @@ class DashboardController extends Controller
                 'path' => $diskSpace['path'],
             ],
             'latestBackups' => $latestBackups,
+            'latestApps' => $latestApps,
         ]);
     }
 }

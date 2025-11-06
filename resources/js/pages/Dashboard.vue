@@ -5,6 +5,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { dashboard } from '@/routes';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/vue3';
+import { HardDrive } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 interface Backup {
@@ -19,6 +20,12 @@ interface Backup {
     };
 }
 
+interface App {
+    id: number;
+    name: string;
+    created_at: string;
+}
+
 interface Props {
     backupDiskSpace?: {
         total: number;
@@ -28,6 +35,7 @@ interface Props {
         path: string;
     };
     latestBackups?: Backup[];
+    latestApps?: App[];
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -39,6 +47,7 @@ const props = withDefaults(defineProps<Props>(), {
         path: '',
     }),
     latestBackups: () => [],
+    latestApps: () => [],
 });
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -207,14 +216,59 @@ const formatDate = (date: string): string => {
                     </div>
                 </div>
 
-                <!-- Placeholder card for future features -->
+                <!-- Latest Apps Card -->
                 <div
-                    class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border"
+                    class="relative overflow-hidden rounded-xl border border-sidebar-border/70 bg-sidebar p-6 dark:border-sidebar-border"
                 >
-                    <div class="flex h-full items-center justify-center">
-                        <p class="text-sm text-sidebar-foreground/50">
-                            Coming soon
-                        </p>
+                    <div class="flex h-full flex-col gap-4">
+                        <div>
+                            <h3
+                                class="text-sm font-medium text-sidebar-foreground/70"
+                            >
+                                Latest Apps
+                            </h3>
+                            <p class="mt-1 text-xs text-sidebar-foreground/50">
+                                Your most recently created apps
+                            </p>
+                        </div>
+
+                        <div
+                            v-if="props.latestApps.length === 0"
+                            class="flex flex-1 items-center justify-center"
+                        >
+                            <p class="text-xs text-sidebar-foreground/50">
+                                No apps yet
+                            </p>
+                        </div>
+
+                        <div v-else class="space-y-2">
+                            <Link
+                                v-for="app in props.latestApps"
+                                :key="app.id"
+                                :href="`/apps/${app.id}`"
+                                class="flex items-center gap-3 rounded-lg border border-sidebar-border/50 p-3 transition-colors hover:border-sidebar-border hover:bg-sidebar-foreground/5"
+                            >
+                                <HardDrive
+                                    class="h-4 w-4 flex-shrink-0 text-sidebar-foreground/50"
+                                />
+                                <div class="min-w-0 flex-1">
+                                    <p
+                                        class="truncate text-sm font-medium text-sidebar-foreground"
+                                    >
+                                        {{ app.name }}
+                                    </p>
+                                    <p
+                                        class="text-xs text-sidebar-foreground/50"
+                                    >
+                                        {{
+                                            new Date(
+                                                app.created_at,
+                                            ).toLocaleDateString()
+                                        }}
+                                    </p>
+                                </div>
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </div>
