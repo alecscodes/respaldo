@@ -11,10 +11,11 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { GITHUB_DOCS_URL, GITHUB_REPO_URL } from '@/lib/constants';
 import { dashboard } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { BookOpen, Folder, HardDrive, LayoutGrid } from 'lucide-vue-next';
+import { BookOpen, Github, HardDrive, LayoutGrid } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
 
 const mainNavItems: NavItem[] = [
@@ -33,12 +34,12 @@ const mainNavItems: NavItem[] = [
 const footerNavItems: NavItem[] = [
     {
         title: 'Github Repo',
-        href: 'https://github.com/laravel/vue-starter-kit',
-        icon: Folder,
+        href: GITHUB_REPO_URL,
+        icon: Github,
     },
     {
         title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#vue',
+        href: GITHUB_DOCS_URL,
         icon: BookOpen,
     },
 ];
