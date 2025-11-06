@@ -18,8 +18,8 @@ import {
 } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link } from '@inertiajs/vue3';
-import { HardDrive, Plus, Server } from 'lucide-vue-next';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { HardDrive, Pencil, Plus, Server } from 'lucide-vue-next';
 import { ref } from 'vue';
 
 interface App {
@@ -45,6 +45,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const showCreateDialog = ref(false);
+const showEditDialog = ref(false);
+const editingApp = ref<App | null>(null);
 
 const formatGb = (gb: number): string => {
     return `${gb.toFixed(2)} GB`;
@@ -55,6 +57,17 @@ const formatPercent = (used: number, total: number): number => {
         return 0;
     }
     return Math.round((used / total) * 100);
+};
+
+const openEditDialog = (app: App) => {
+    editingApp.value = app;
+    showEditDialog.value = true;
+};
+
+const handleEditSuccess = () => {
+    showEditDialog.value = false;
+    editingApp.value = null;
+    router.reload({ only: ['apps'] });
 };
 </script>
 
@@ -187,10 +200,33 @@ const formatPercent = (used: number, total: number): number => {
                                     View Details
                                 </Link>
                             </Button>
+                            <Button
+                                variant="outline"
+                                @click="openEditDialog(app)"
+                            >
+                                <Pencil class="h-4 w-4" />
+                            </Button>
                         </div>
                     </CardContent>
                 </Card>
             </div>
+
+            <!-- Edit Dialog -->
+            <Dialog v-model:open="showEditDialog">
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit App</DialogTitle>
+                        <DialogDescription>
+                            Update the app name and storage size.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <AppForm
+                        v-if="editingApp"
+                        :app="editingApp"
+                        @success="handleEditSuccess"
+                    />
+                </DialogContent>
+            </Dialog>
         </div>
     </AppLayout>
 </template>

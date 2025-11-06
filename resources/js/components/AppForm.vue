@@ -70,7 +70,7 @@ const submit = (e: Event) => {
                 type="number"
                 step="0.1"
                 min="0.1"
-                :default-value="app?.storage_size_gb?.toFixed(2) || ''"
+                :default-value="app?.storage_size?.toFixed(2) || ''"
                 required
                 placeholder="10"
             />

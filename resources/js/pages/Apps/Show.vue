@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppForm from '@/components/AppForm.vue';
 import BackupList from '@/components/BackupList.vue';
 import DeleteAppConfirmationDialog from '@/components/DeleteAppConfirmationDialog.vue';
 import InputError from '@/components/InputError.vue';
@@ -10,10 +11,17 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { ArrowLeft, Trash2, Upload } from 'lucide-vue-next';
+import { ArrowLeft, Pencil, Trash2, Upload } from 'lucide-vue-next';
 import { ref } from 'vue';
 
 interface App {
@@ -40,6 +48,7 @@ const props = defineProps<Props>();
 
 const showUploadDialog = ref(false);
 const showDeleteDialog = ref(false);
+const showEditDialog = ref(false);
 const uploadFile = ref<File | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
@@ -173,6 +182,10 @@ const handleUploadSuccess = () => {
                 </div>
 
                 <div class="flex gap-2">
+                    <Button variant="outline" @click="showEditDialog = true">
+                        <Pencil class="mr-2 h-4 w-4" />
+                        Edit App
+                    </Button>
                     <Button variant="destructive" @click="openDeleteDialog">
                         <Trash2 class="mr-2 h-4 w-4" />
                         Delete App
@@ -397,6 +410,25 @@ const handleUploadSuccess = () => {
                     </CardContent>
                 </Card>
             </div>
+
+            <!-- Edit Dialog -->
+            <Dialog v-model:open="showEditDialog">
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit App</DialogTitle>
+                        <DialogDescription>
+                            Update the app name and storage size.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <AppForm
+                        :app="props.app"
+                        @success="
+                            showEditDialog = false;
+                            router.reload({ only: ['app'] });
+                        "
+                    />
+                </DialogContent>
+            </Dialog>
 
             <DeleteAppConfirmationDialog
                 v-model:open="showDeleteDialog"

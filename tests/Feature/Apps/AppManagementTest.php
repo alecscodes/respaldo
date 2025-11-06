@@ -71,6 +71,47 @@ test('users can update their app', function () {
     ]);
 });
 
+test('users can update only app name', function () {
+    $user = User::factory()->create();
+    $originalStorage = StorageConverter::gbToBytes(10);
+    $app = App::factory()->create([
+        'user_id' => $user->id,
+        'storage_size' => $originalStorage,
+    ]);
+    $this->actingAs($user);
+
+    $response = $this->put(route('apps.update', $app), [
+        'name' => 'Updated Name Only',
+    ]);
+
+    $response->assertRedirect();
+    $this->assertDatabaseHas('apps', [
+        'id' => $app->id,
+        'name' => 'Updated Name Only',
+        'storage_size' => $originalStorage,
+    ]);
+});
+
+test('users can update only storage size', function () {
+    $user = User::factory()->create();
+    $app = App::factory()->create([
+        'user_id' => $user->id,
+        'name' => 'Original Name',
+    ]);
+    $this->actingAs($user);
+
+    $response = $this->put(route('apps.update', $app), [
+        'storage_size' => 25,
+    ]);
+
+    $response->assertRedirect();
+    $this->assertDatabaseHas('apps', [
+        'id' => $app->id,
+        'name' => 'Original Name',
+        'storage_size' => StorageConverter::gbToBytes(25),
+    ]);
+});
+
 test('users can delete their app', function () {
     $user = User::factory()->create();
     $app = App::factory()->create(['user_id' => $user->id]);
