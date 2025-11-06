@@ -36,10 +36,7 @@ defineProps<Props>();
             d="M12 20a8 8 0 0 1 16 0"
         />
         <!-- Arrowhead pointing counter-clockwise (rewind) -->
-        <path
-            fill="currentColor"
-            d="M12 20l-3-3 3-3v6z"
-        />
+        <path fill="currentColor" d="M12 20l-3-3 3-3v6z" />
         <line
             x1="12"
             y1="20"
