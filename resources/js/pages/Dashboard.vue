@@ -5,6 +5,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { dashboard } from '@/routes';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/vue3';
+import { onClickOutside } from '@vueuse/core';
 import { ChevronDown, HardDrive } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -99,6 +100,11 @@ const formatDate = (date: string): string => {
 };
 
 const showInstructions = ref(false);
+const instructionsRef = ref<HTMLElement | null>(null);
+
+onClickOutside(instructionsRef, () => {
+    showInstructions.value = false;
+});
 </script>
 
 <template>
@@ -197,7 +203,7 @@ const showInstructions = ref(false);
 
                 <!-- CLI Script Card -->
                 <div
-                    class="relative overflow-hidden rounded-xl border border-sidebar-border/70 bg-sidebar p-6 dark:border-sidebar-border"
+                    class="relative overflow-visible rounded-xl border border-sidebar-border/70 bg-sidebar p-6 dark:border-sidebar-border"
                 >
                     <div class="flex h-full flex-col gap-4">
                         <div>
@@ -217,153 +223,161 @@ const showInstructions = ref(false);
                         <div class="mt-auto space-y-3">
                             <DownloadScriptButton />
 
-                            <button
-                                @click="showInstructions = !showInstructions"
-                                class="flex w-full items-center justify-between rounded-lg border border-sidebar-border/50 bg-sidebar-foreground/5 px-3 py-2 text-xs text-sidebar-foreground/70 transition-colors hover:bg-sidebar-foreground/10 dark:border-sidebar-border/50"
-                            >
-                                <span>Usage Instructions</span>
-                                <ChevronDown
-                                    :class="[
-                                        'h-4 w-4 transition-transform',
-                                        showInstructions && 'rotate-180',
-                                    ]"
-                                />
-                            </button>
-
-                            <Transition
-                                enter-active-class="transition ease-out duration-200"
-                                enter-from-class="opacity-0 -translate-y-2"
-                                enter-to-class="opacity-100 translate-y-0"
-                                leave-active-class="transition ease-in duration-150"
-                                leave-from-class="opacity-100 translate-y-0"
-                                leave-to-class="opacity-0 -translate-y-2"
-                            >
-                                <div
-                                    v-if="showInstructions"
-                                    class="space-y-4 rounded-lg border border-sidebar-border/50 bg-sidebar-foreground/5 p-3 text-xs text-sidebar-foreground/70 sm:p-4"
+                            <div class="relative" ref="instructionsRef">
+                                <button
+                                    @click="
+                                        showInstructions = !showInstructions
+                                    "
+                                    class="flex w-full items-center justify-between rounded-lg border border-sidebar-border/50 bg-sidebar-foreground/5 px-3 py-2 text-xs text-sidebar-foreground/70 transition-colors hover:bg-sidebar-foreground/10 dark:border-sidebar-border/50"
                                 >
-                                    <div class="space-y-2">
-                                        <h4
-                                            class="font-semibold text-sidebar-foreground"
-                                        >
-                                            1. First Time Setup
-                                        </h4>
-                                        <p>
-                                            After downloading, make the script
-                                            executable:
-                                        </p>
-                                        <div
-                                            class="overflow-x-auto rounded-md bg-sidebar p-3 font-mono text-xs"
-                                        >
-                                            <div
-                                                class="text-sidebar-foreground/50"
-                                            >
-                                                # Option 1: Run with bash
-                                            </div>
-                                            <div class="mt-1">
-                                                bash respaldo.sh
-                                            </div>
-                                            <div
-                                                class="mt-3 text-sidebar-foreground/50"
-                                            >
-                                                # Option 2: Make executable
-                                            </div>
-                                            <div class="mt-1">
-                                                chmod +x respaldo.sh
-                                            </div>
-                                            <div class="mt-1">
-                                                ./respaldo.sh
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <span>Usage Instructions</span>
+                                    <ChevronDown
+                                        :class="[
+                                            'h-4 w-4 transition-transform',
+                                            showInstructions && 'rotate-180',
+                                        ]"
+                                    />
+                                </button>
 
-                                    <div class="space-y-2">
-                                        <h4
-                                            class="font-semibold text-sidebar-foreground"
-                                        >
-                                            2. Install as Binary Command
-                                        </h4>
-                                        <p>
-                                            Add to your PATH to use from
-                                            anywhere:
-                                        </p>
-                                        <div
-                                            class="overflow-x-auto rounded-md bg-sidebar p-3 font-mono text-xs"
-                                        >
-                                            <div
-                                                class="text-sidebar-foreground/50"
+                                <Transition
+                                    enter-active-class="transition ease-out duration-200"
+                                    enter-from-class="opacity-0 scale-95 translate-y-2"
+                                    enter-to-class="opacity-100 scale-100 translate-y-0"
+                                    leave-active-class="transition ease-in duration-150"
+                                    leave-from-class="opacity-100 scale-100 translate-y-0"
+                                    leave-to-class="opacity-0 scale-95 translate-y-2"
+                                >
+                                    <div
+                                        v-if="showInstructions"
+                                        class="absolute top-full left-0 z-50 mt-2 max-h-[80vh] w-[calc(100vw-3rem)] space-y-4 overflow-y-auto rounded-lg border border-sidebar-border/50 bg-sidebar p-4 text-xs text-sidebar-foreground/70 shadow-lg sm:right-0 sm:left-auto sm:w-96"
+                                    >
+                                        <div class="space-y-2">
+                                            <h4
+                                                class="font-semibold text-sidebar-foreground"
                                             >
-                                                # User-level (recommended)
-                                            </div>
-                                            <div class="mt-1">
-                                                mkdir -p ~/bin
-                                            </div>
-                                            <div class="mt-1">
-                                                mv respaldo.sh ~/bin/respaldo
-                                            </div>
-                                            <div class="mt-1">
-                                                chmod +x ~/bin/respaldo
-                                            </div>
-                                            <div class="mt-1">
-                                                export PATH="$HOME/bin:$PATH"
-                                            </div>
+                                                1. First Time Setup
+                                            </h4>
+                                            <p>
+                                                After downloading, make the
+                                                script executable:
+                                            </p>
                                             <div
-                                                class="mt-3 text-sidebar-foreground/50"
+                                                class="overflow-x-auto rounded-md bg-sidebar p-3 font-mono text-xs"
                                             >
-                                                # System-wide
-                                            </div>
-                                            <div class="mt-1">
-                                                sudo mv respaldo.sh
-                                                /usr/local/bin/respaldo
-                                            </div>
-                                            <div class="mt-1">
-                                                sudo chmod +x
-                                                /usr/local/bin/respaldo
+                                                <div
+                                                    class="text-sidebar-foreground/50"
+                                                >
+                                                    # Option 1: Run with bash
+                                                </div>
+                                                <div class="mt-1">
+                                                    bash respaldo.sh
+                                                </div>
+                                                <div
+                                                    class="mt-3 text-sidebar-foreground/50"
+                                                >
+                                                    # Option 2: Make executable
+                                                </div>
+                                                <div class="mt-1">
+                                                    chmod +x respaldo.sh
+                                                </div>
+                                                <div class="mt-1">
+                                                    ./respaldo.sh
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    <div class="space-y-2">
-                                        <h4
-                                            class="font-semibold text-sidebar-foreground"
-                                        >
-                                            3. Automated Backups with Cron
-                                        </h4>
-                                        <p>
-                                            Set up a cron job for automatic
-                                            backups:
-                                        </p>
-                                        <div
-                                            class="overflow-x-auto rounded-md bg-sidebar p-3 font-mono text-xs"
-                                        >
-                                            <div
-                                                class="text-sidebar-foreground/50"
+                                        <div class="space-y-2">
+                                            <h4
+                                                class="font-semibold text-sidebar-foreground"
                                             >
-                                                # Edit crontab
-                                            </div>
-                                            <div class="mt-1">crontab -e</div>
+                                                2. Install as Binary Command
+                                            </h4>
+                                            <p>
+                                                Add to your PATH to use from
+                                                anywhere:
+                                            </p>
                                             <div
-                                                class="mt-3 text-sidebar-foreground/50"
+                                                class="overflow-x-auto rounded-md bg-sidebar p-3 font-mono text-xs"
                                             >
-                                                # Daily backup at 2 AM
+                                                <div
+                                                    class="text-sidebar-foreground/50"
+                                                >
+                                                    # User-level (recommended)
+                                                </div>
+                                                <div class="mt-1">
+                                                    mkdir -p ~/bin
+                                                </div>
+                                                <div class="mt-1">
+                                                    mv respaldo.sh
+                                                    ~/bin/respaldo
+                                                </div>
+                                                <div class="mt-1">
+                                                    chmod +x ~/bin/respaldo
+                                                </div>
+                                                <div class="mt-1">
+                                                    export
+                                                    PATH="$HOME/bin:$PATH"
+                                                </div>
+                                                <div
+                                                    class="mt-3 text-sidebar-foreground/50"
+                                                >
+                                                    # System-wide
+                                                </div>
+                                                <div class="mt-1">
+                                                    sudo mv respaldo.sh
+                                                    /usr/local/bin/respaldo
+                                                </div>
+                                                <div class="mt-1">
+                                                    sudo chmod +x
+                                                    /usr/local/bin/respaldo
+                                                </div>
                                             </div>
-                                            <div class="mt-1">
-                                                0 2 * * * respaldo
-                                                /path/to/project
-                                            </div>
+                                        </div>
+
+                                        <div class="space-y-2">
+                                            <h4
+                                                class="font-semibold text-sidebar-foreground"
+                                            >
+                                                3. Automated Backups with Cron
+                                            </h4>
+                                            <p>
+                                                Set up a cron job for automatic
+                                                backups:
+                                            </p>
                                             <div
-                                                class="mt-3 text-sidebar-foreground/50"
+                                                class="overflow-x-auto rounded-md bg-sidebar p-3 font-mono text-xs"
                                             >
-                                                # Weekly backup on Sundays
-                                            </div>
-                                            <div class="mt-1">
-                                                0 3 * * 0 respaldo
-                                                /path/to/project
+                                                <div
+                                                    class="text-sidebar-foreground/50"
+                                                >
+                                                    # Edit crontab
+                                                </div>
+                                                <div class="mt-1">
+                                                    crontab -e
+                                                </div>
+                                                <div
+                                                    class="mt-3 text-sidebar-foreground/50"
+                                                >
+                                                    # Daily backup at 2 AM
+                                                </div>
+                                                <div class="mt-1">
+                                                    0 2 * * * respaldo
+                                                    /path/to/project
+                                                </div>
+                                                <div
+                                                    class="mt-3 text-sidebar-foreground/50"
+                                                >
+                                                    # Weekly backup on Sundays
+                                                </div>
+                                                <div class="mt-1">
+                                                    0 3 * * 0 respaldo
+                                                    /path/to/project
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            </Transition>
+                                </Transition>
+                            </div>
                         </div>
                     </div>
                 </div>
