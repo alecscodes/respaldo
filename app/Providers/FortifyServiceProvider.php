@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
+use App\Models\Setting;
 use App\Services\IpBanService;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -53,7 +54,7 @@ class FortifyServiceProvider extends ServiceProvider
     {
         Fortify::loginView(fn (Request $request) => Inertia::render('auth/Login', [
             'canResetPassword' => Features::enabled(Features::resetPasswords()),
-            'canRegister' => Features::enabled(Features::registration()),
+            'canRegister' => Features::enabled(Features::registration()) && Setting::isRegistrationAllowed(),
             'status' => $request->session()->get('status'),
         ]));
 
@@ -70,7 +71,14 @@ class FortifyServiceProvider extends ServiceProvider
             'status' => $request->session()->get('status'),
         ]));
 
-        Fortify::registerView(fn () => Inertia::render('auth/Register'));
+        Fortify::registerView(function (Request $request) {
+            // Block access to registration view if registration is disabled
+            if (! Setting::isRegistrationAllowed()) {
+                abort(403, 'Registration is currently disabled.');
+            }
+
+            return Inertia::render('auth/Register');
+        });
 
         Fortify::twoFactorChallengeView(fn () => Inertia::render('auth/TwoFactorChallenge'));
 

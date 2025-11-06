@@ -66,6 +66,18 @@ Visit `http://localhost:8000` 🎉
 
 ## ⚙️ Configuration
 
+### 👥 Registration Control
+
+- **Fresh install**: Registration is auto-enabled for first user
+- **After setup**: Auto-disabled for security
+- **Manual control**: Enable/disable in **Settings → Registration**
+
+### 🏠 Homepage Control
+
+- **Fresh install**: Homepage is auto-enabled for first user
+- **After setup**: Auto-disabled for security
+- **Manual control**: Enable/disable in **Settings → Homepage**
+
 ### 📢 CLI Script Usage
 
 1. **Download the script** from the admin panel (Script is personalized per user)
