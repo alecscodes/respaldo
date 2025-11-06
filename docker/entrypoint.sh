@@ -74,30 +74,56 @@ fi
 if [ "${DB_CONNECTION}" = "sqlite" ] || [ -z "${DB_CONNECTION}" ]; then
     DB_FILE="/var/www/database/database.sqlite"
     DB_DIR="/var/www/database"
-    
-    # Ensure database directory exists
+    BACKUP_DB_FILE="/var/www/backups/database/database.sqlite"
+    BACKUP_DB_DIR="/var/www/backups/database"
+
+    # Ensure database directory exists (for migrations/seeders/factories)
     mkdir -p "${DB_DIR}"
     set_ownership "${DB_DIR}"
     chmod 775 "${DB_DIR}"
-    
-    # If database.sqlite exists as a directory (from previous failed file mount), remove it
+
+    # Ensure backups database directory exists
+    mkdir -p "${BACKUP_DB_DIR}"
+    set_ownership "${BACKUP_DB_DIR}"
+    chmod 775 "${BACKUP_DB_DIR}"
+
+    # If database.sqlite exists as a directory (from Docker's failed file mount), remove it
     if [ -d "${DB_FILE}" ]; then
-        log_warn "Removing incorrectly created database directory..."
+        log_warn "Removing incorrectly created database directory (Docker created directory instead of mounting file)..."
         rm -rf "${DB_FILE}" 2>/dev/null || true
     fi
-    
-    # Create database file if it doesn't exist
-    if [ ! -f "${DB_FILE}" ]; then
-        log_info "Creating SQLite database file..."
-        touch "${DB_FILE}"
-        set_ownership "${DB_FILE}"
-        chmod 664 "${DB_FILE}"
-        log_info "SQLite database file created successfully"
+
+    # Check if the file mount worked or if we need to create a symlink
+    # If Docker successfully mounted the file, it will exist as a regular file
+    # If Docker created a directory (because file didn't exist on host), we removed it above
+    # If mount point is empty, create symlink to backup file
+    if [ ! -f "${DB_FILE}" ] && [ ! -L "${DB_FILE}" ] && [ ! -d "${DB_FILE}" ]; then
+        if [ -f "${BACKUP_DB_FILE}" ]; then
+            log_info "Database file exists in backups but not at mount point. Creating symlink..."
+            ln -sf "${BACKUP_DB_FILE}" "${DB_FILE}"
+            log_info "Database symlink created successfully"
+        else
+            log_info "Creating new SQLite database file in backups directory..."
+            touch "${BACKUP_DB_FILE}"
+            set_ownership "${BACKUP_DB_FILE}"
+            chmod 664 "${BACKUP_DB_FILE}"
+            ln -sf "${BACKUP_DB_FILE}" "${DB_FILE}"
+            log_info "SQLite database file created successfully"
+        fi
+    elif [ -f "${DB_FILE}" ] && [ ! -L "${DB_FILE}" ]; then
+        # File successfully mounted from backups
+        log_info "Database file successfully mounted from backups"
     fi
-    
+
     # Ensure file is writable
-    chmod 664 "${DB_FILE}" || true
-    set_ownership "${DB_FILE}" || true
+    if [ -f "${DB_FILE}" ] || [ -L "${DB_FILE}" ]; then
+        chmod 664 "${DB_FILE}" || true
+        set_ownership "${DB_FILE}" || true
+    fi
+    if [ -f "${BACKUP_DB_FILE}" ]; then
+        chmod 664 "${BACKUP_DB_FILE}" || true
+        set_ownership "${BACKUP_DB_FILE}" || true
+    fi
 fi
 
 # Laravel optimizations
