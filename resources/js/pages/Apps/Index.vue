@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import AppForm from '@/components/AppForm.vue';
-import DeleteAppConfirmationDialog from '@/components/DeleteAppConfirmationDialog.vue';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -19,7 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { HardDrive, Plus, Server } from 'lucide-vue-next';
 import { ref } from 'vue';
 
@@ -46,8 +45,6 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const showCreateDialog = ref(false);
-const showDeleteDialog = ref(false);
-const appToDelete = ref<{ id: number; name: string } | null>(null);
 
 const formatGb = (gb: number): string => {
     return `${gb.toFixed(2)} GB`;
@@ -58,17 +55,6 @@ const formatPercent = (used: number, total: number): number => {
         return 0;
     }
     return Math.round((used / total) * 100);
-};
-
-const openDeleteDialog = (app: App) => {
-    appToDelete.value = { id: app.id, name: app.name };
-    showDeleteDialog.value = true;
-};
-
-const confirmDelete = () => {
-    if (appToDelete.value) {
-        router.delete(`/apps/${appToDelete.value.id}`);
-    }
 };
 </script>
 
@@ -129,21 +115,7 @@ const confirmDelete = () => {
                     class="transition-shadow hover:shadow-md"
                 >
                     <CardHeader>
-                        <div class="flex items-center justify-between">
-                            <CardTitle class="text-lg">{{
-                                app.name
-                            }}</CardTitle>
-                            <div class="flex gap-2">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    @click="openDeleteDialog(app)"
-                                    title="Delete app"
-                                >
-                                    <span class="text-destructive">×</span>
-                                </Button>
-                            </div>
-                        </div>
+                        <CardTitle class="text-lg">{{ app.name }}</CardTitle>
                         <CardDescription
                             >Created
                             {{
@@ -219,13 +191,6 @@ const confirmDelete = () => {
                     </CardContent>
                 </Card>
             </div>
-
-            <DeleteAppConfirmationDialog
-                v-if="appToDelete"
-                v-model:open="showDeleteDialog"
-                :app-name="appToDelete.name"
-                @confirm="confirmDelete"
-            />
         </div>
     </AppLayout>
 </template>
