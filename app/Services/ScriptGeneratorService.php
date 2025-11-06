@@ -91,6 +91,65 @@ if [ -z "$TOKEN" ]; then
     exit 1
 fi
 
+# Remove hardcoded credentials from script after first successful use (security)
+remove_hardcoded_credentials() {
+    # Only remove if config file exists and has valid values
+    if [ ! -f "$CONFIG_FILE" ]; then
+        return 0
+    fi
+
+    # Check if config file has valid TOKEN and BASE_URL
+    config_token=$(grep "^TOKEN=" "$CONFIG_FILE" 2>/dev/null | cut -d'"' -f2)
+    config_url=$(grep "^BASE_URL=" "$CONFIG_FILE" 2>/dev/null | cut -d'"' -f2)
+
+    if [ -z "$config_token" ] || [ -z "$config_url" ]; then
+        return 0
+    fi
+
+    # Get absolute path of script
+    script_path="$0"
+    if [ "${script_path#/}" = "$script_path" ]; then
+        # Relative path, make it absolute
+        script_path="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+    fi
+
+    # Check if script still has hardcoded credentials (lines 46-47)
+    # Look for BASE_URL and TOKEN assignment lines that are not comments
+    has_hardcoded=false
+    if grep -q "^BASE_URL=" "$script_path" 2>/dev/null; then
+        has_hardcoded=true
+    fi
+    if grep -q "^TOKEN=" "$script_path" 2>/dev/null; then
+        has_hardcoded=true
+    fi
+
+    if [ "$has_hardcoded" = "false" ]; then
+        # Already removed
+        return 0
+    fi
+
+    # Create temporary file without hardcoded credentials
+    temp_script=$(mktemp)
+
+    # Remove lines starting with BASE_URL= or TOKEN= (but keep comments and other references)
+    # Use awk to filter out the assignment lines
+    awk '
+        /^BASE_URL=/ { next }
+        /^TOKEN=/ { next }
+        { print }
+    ' "$script_path" > "$temp_script" 2>/dev/null
+
+    if [ $? -eq 0 ] && [ -s "$temp_script" ]; then
+        # Preserve script permissions
+        script_perms=$(stat -f "%OLp" "$script_path" 2>/dev/null || stat -c "%a" "$script_path" 2>/dev/null || echo "755")
+        chmod "$script_perms" "$temp_script" 2>/dev/null || chmod +x "$temp_script"
+        mv "$temp_script" "$script_path"
+        echo -e "${GREEN}Security: Hardcoded credentials removed from script.${NC}"
+    else
+        rm -f "$temp_script"
+    fi
+}
+
 # Check authentication
 check_auth() {
     response=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/apps")
@@ -130,6 +189,9 @@ check_auth() {
         esac
         exit 1
     fi
+
+    # After successful authentication, remove hardcoded credentials for security
+    remove_hardcoded_credentials
 }
 
 # List apps
