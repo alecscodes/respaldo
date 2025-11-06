@@ -73,7 +73,31 @@ fi
 # Create SQLite database if needed
 if [ "${DB_CONNECTION}" = "sqlite" ] || [ -z "${DB_CONNECTION}" ]; then
     DB_FILE="/var/www/database/database.sqlite"
-    [ ! -f "${DB_FILE}" ] && touch "${DB_FILE}" && set_ownership "${DB_FILE}" && chmod 664 "${DB_FILE}"
+    DB_DIR="/var/www/database"
+    
+    # Ensure database directory exists
+    mkdir -p "${DB_DIR}"
+    set_ownership "${DB_DIR}"
+    chmod 775 "${DB_DIR}"
+    
+    # If database.sqlite exists as a directory (from previous failed file mount), remove it
+    if [ -d "${DB_FILE}" ]; then
+        log_warn "Removing incorrectly created database directory..."
+        rm -rf "${DB_FILE}" 2>/dev/null || true
+    fi
+    
+    # Create database file if it doesn't exist
+    if [ ! -f "${DB_FILE}" ]; then
+        log_info "Creating SQLite database file..."
+        touch "${DB_FILE}"
+        set_ownership "${DB_FILE}"
+        chmod 664 "${DB_FILE}"
+        log_info "SQLite database file created successfully"
+    fi
+    
+    # Ensure file is writable
+    chmod 664 "${DB_FILE}" || true
+    set_ownership "${DB_FILE}" || true
 fi
 
 # Laravel optimizations
