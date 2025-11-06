@@ -165,6 +165,10 @@ if [ "${DB_CONNECTION}" = "sqlite" ] || [ -z "${DB_CONNECTION}" ]; then
     fi
 fi
 
+# Build frontend assets
+log_info "Building frontend assets..."
+cd /var/www && npm run build
+
 # Laravel optimizations
 log_info "Clearing optimizations..."
 php artisan optimize:clear || true
