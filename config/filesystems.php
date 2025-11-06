@@ -60,6 +60,17 @@ return [
             'report' => false,
         ],
 
+        'backups' => [
+            'driver' => 'local',
+            // In Docker, backups are mounted at /var/www/backups
+            // Otherwise, use BACKUP_VOLUME env or default to ./backups
+            'root' => file_exists('/var/www/backups') && is_dir('/var/www/backups')
+                ? '/var/www/backups'
+                : (env('BACKUP_VOLUME') ?: base_path('backups')),
+            'throw' => false,
+            'report' => false,
+        ],
+
     ],
 
     /*
