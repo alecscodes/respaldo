@@ -83,7 +83,7 @@ const percentageColor = computed(() => {
                             <h3
                                 class="text-sm font-medium text-sidebar-foreground/70"
                             >
-                                Backup Storage
+                                Storage
                             </h3>
                             <p class="mt-1 text-xs text-sidebar-foreground/50">
                                 {{ backupDiskSpace.path }}
