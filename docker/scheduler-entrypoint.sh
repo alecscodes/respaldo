@@ -30,23 +30,56 @@ if [ -d "${DB_FILE}" ]; then
     rm -rf "${DB_FILE}" 2>/dev/null || true
 fi
 
-# Check if the file mount worked or if we need to create a symlink
-if [ ! -f "${DB_FILE}" ] && [ ! -L "${DB_FILE}" ] && [ ! -d "${DB_FILE}" ]; then
-    if [ -f "${BACKUP_DB_FILE}" ]; then
-        ln -sf "${BACKUP_DB_FILE}" "${DB_FILE}"
-    else
-        touch "${BACKUP_DB_FILE}"
-        set_ownership "${BACKUP_DB_FILE}"
-        chmod 664 "${BACKUP_DB_FILE}"
-        ln -sf "${BACKUP_DB_FILE}" "${DB_FILE}"
+# Always use symlink from project database directory to backups database file
+if [ -f "${BACKUP_DB_FILE}" ]; then
+    # Remove any existing file or incorrect symlink
+    if [ -f "${DB_FILE}" ] && [ ! -L "${DB_FILE}" ]; then
+        rm -f "${DB_FILE}" 2>/dev/null || true
     fi
+    # Remove existing symlink if it points to wrong location
+    if [ -L "${DB_FILE}" ]; then
+        CURRENT_TARGET=$(readlink "${DB_FILE}")
+        if [ "${CURRENT_TARGET}" != "${BACKUP_DB_FILE}" ]; then
+            rm -f "${DB_FILE}" 2>/dev/null || true
+        fi
+    fi
+    # Create symlink
+    ln -sf "${BACKUP_DB_FILE}" "${DB_FILE}"
+else
+    # Create new database file in backups
+    if ! touch "${BACKUP_DB_FILE}" 2>/dev/null; then
+        echo "ERROR: Failed to create database file at ${BACKUP_DB_FILE}"
+        echo "Check that backups directory is writable and has correct permissions"
+        exit 1
+    fi
+    set_ownership "${BACKUP_DB_FILE}"
+    chmod 664 "${BACKUP_DB_FILE}"
+    # Create symlink
+    ln -sf "${BACKUP_DB_FILE}" "${DB_FILE}"
+fi
+
+# Verify symlink was created correctly
+if [ ! -L "${DB_FILE}" ] && [ ! -f "${DB_FILE}" ]; then
+    echo "ERROR: Failed to create database symlink or file at ${DB_FILE}"
+    exit 1
 fi
 
 # Ensure file is writable
-if [ -f "${DB_FILE}" ] || [ -L "${DB_FILE}" ]; then
+if [ -L "${DB_FILE}" ]; then
+    # Follow symlink to set permissions on actual file
+    REAL_FILE=$(readlink -f "${DB_FILE}" 2>/dev/null || readlink "${DB_FILE}")
+    if [ -f "${REAL_FILE}" ]; then
+        chmod 664 "${REAL_FILE}" || true
+        set_ownership "${REAL_FILE}" || true
+    fi
+    chmod 664 "${DB_FILE}" || true
+    set_ownership "${DB_FILE}" || true
+elif [ -f "${DB_FILE}" ]; then
     chmod 664 "${DB_FILE}" || true
     set_ownership "${DB_FILE}" || true
 fi
+
+# Ensure backup file is writable
 if [ -f "${BACKUP_DB_FILE}" ]; then
     chmod 664 "${BACKUP_DB_FILE}" || true
     set_ownership "${BACKUP_DB_FILE}" || true

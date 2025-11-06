@@ -93,36 +93,75 @@ if [ "${DB_CONNECTION}" = "sqlite" ] || [ -z "${DB_CONNECTION}" ]; then
         rm -rf "${DB_FILE}" 2>/dev/null || true
     fi
 
-    # Check if the file mount worked or if we need to create a symlink
-    # If Docker successfully mounted the file, it will exist as a regular file
-    # If Docker created a directory (because file didn't exist on host), we removed it above
-    # If mount point is empty, create symlink to backup file
-    if [ ! -f "${DB_FILE}" ] && [ ! -L "${DB_FILE}" ] && [ ! -d "${DB_FILE}" ]; then
-        if [ -f "${BACKUP_DB_FILE}" ]; then
-            log_info "Database file exists in backups but not at mount point. Creating symlink..."
-            ln -sf "${BACKUP_DB_FILE}" "${DB_FILE}"
-            log_info "Database symlink created successfully"
-        else
-            log_info "Creating new SQLite database file in backups directory..."
-            touch "${BACKUP_DB_FILE}"
-            set_ownership "${BACKUP_DB_FILE}"
-            chmod 664 "${BACKUP_DB_FILE}"
-            ln -sf "${BACKUP_DB_FILE}" "${DB_FILE}"
-            log_info "SQLite database file created successfully"
+    # Always use symlink from project database directory to backups database file
+    # This ensures migrations/seeders/factories remain accessible while database is stored in backups
+    if [ -f "${BACKUP_DB_FILE}" ]; then
+        log_info "Database file found in backups. Creating symlink..."
+        # Remove any existing file or incorrect symlink
+        if [ -f "${DB_FILE}" ] && [ ! -L "${DB_FILE}" ]; then
+            log_warn "Removing existing database file (will use symlink to backups)..."
+            rm -f "${DB_FILE}" 2>/dev/null || true
         fi
-    elif [ -f "${DB_FILE}" ] && [ ! -L "${DB_FILE}" ]; then
-        # File successfully mounted from backups
-        log_info "Database file successfully mounted from backups"
+        # Remove existing symlink if it points to wrong location
+        if [ -L "${DB_FILE}" ]; then
+            CURRENT_TARGET=$(readlink "${DB_FILE}")
+            if [ "${CURRENT_TARGET}" != "${BACKUP_DB_FILE}" ]; then
+                log_warn "Removing incorrect symlink (points to ${CURRENT_TARGET})..."
+                rm -f "${DB_FILE}" 2>/dev/null || true
+            fi
+        fi
+        # Create symlink
+        ln -sf "${BACKUP_DB_FILE}" "${DB_FILE}"
+        log_info "Database symlink created successfully"
+    else
+        log_info "Creating new SQLite database file in backups directory..."
+        if ! touch "${BACKUP_DB_FILE}" 2>/dev/null; then
+            log_error "Failed to create database file at ${BACKUP_DB_FILE}"
+            log_error "Check that backups directory is writable and has correct permissions"
+            exit 1
+        fi
+        set_ownership "${BACKUP_DB_FILE}"
+        chmod 664 "${BACKUP_DB_FILE}"
+        # Create symlink
+        ln -sf "${BACKUP_DB_FILE}" "${DB_FILE}"
+        log_info "SQLite database file created successfully in backups"
+    fi
+
+    # Verify symlink was created correctly
+    if [ ! -L "${DB_FILE}" ] && [ ! -f "${DB_FILE}" ]; then
+        log_error "Failed to create database symlink or file at ${DB_FILE}"
+        exit 1
     fi
 
     # Ensure file is writable
-    if [ -f "${DB_FILE}" ] || [ -L "${DB_FILE}" ]; then
+    if [ -L "${DB_FILE}" ]; then
+        # Follow symlink to set permissions on actual file
+        REAL_FILE=$(readlink -f "${DB_FILE}" 2>/dev/null || readlink "${DB_FILE}")
+        if [ -f "${REAL_FILE}" ]; then
+            chmod 664 "${REAL_FILE}" || true
+            set_ownership "${REAL_FILE}" || true
+        fi
+        # Also set permissions on symlink itself
+        chmod 664 "${DB_FILE}" || true
+        set_ownership "${DB_FILE}" || true
+    elif [ -f "${DB_FILE}" ]; then
         chmod 664 "${DB_FILE}" || true
         set_ownership "${DB_FILE}" || true
     fi
+
+    # Ensure backup file is writable
     if [ -f "${BACKUP_DB_FILE}" ]; then
         chmod 664 "${BACKUP_DB_FILE}" || true
         set_ownership "${BACKUP_DB_FILE}" || true
+    fi
+
+    # Verify database file is accessible
+    if [ -L "${DB_FILE}" ] || [ -f "${DB_FILE}" ]; then
+        if sqlite3 "${DB_FILE}" "SELECT 1;" > /dev/null 2>&1; then
+            log_info "Database file is accessible and valid"
+        else
+            log_warn "Database file exists but may not be accessible. This is normal for a new database."
+        fi
     fi
 fi
 

@@ -20,7 +20,6 @@ services:
       - ./storage:/var/www/storage
       # Mount backup volume (configurable via BACKUP_VOLUME env, defaults to ./backups)
       - ${BACKUP_VOLUME:-./backups}:/var/www/backups
-      - ${BACKUP_VOLUME:-./backups}/database/database.sqlite:/var/www/database/database.sqlite
     env_file:
       - .env
     healthcheck:
@@ -71,7 +70,6 @@ services:
       - ./storage:/var/www/storage
       # Mount backup volume (configurable via BACKUP_VOLUME env, defaults to ./backups)
       - ${BACKUP_VOLUME:-./backups}:/var/www/backups
-      - ${BACKUP_VOLUME:-./backups}/database/database.sqlite:/var/www/database/database.sqlite
     env_file:
       - .env
     depends_on:
