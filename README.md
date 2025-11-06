@@ -12,6 +12,17 @@ A comprehensive backup management application built with Laravel & Vue.js. Manag
 git clone https://github.com/alecscodes/respaldo.git
 cd respaldo
 cp .env.example .env
+```
+
+**Configure required environment variables in `.env`:**
+
+- `APP_URL` (required) - The full URL of your application (e.g., `http://localhost:8000` or `https://respaldo.example.com`)
+- `APP_PORT` (optional) - Port to expose the application on (default: `8000`)
+- `BACKUP_VOLUME` (optional) - Path to store backups (default: `./backups`). Can be an external location like `/mnt/external-drive/backups`
+
+Then start the containers:
+
+```bash
 docker-compose up -d
 ```
 
@@ -75,20 +86,87 @@ Visit `http://localhost:8000` 🎉
 
 ### 📢 CLI Script Usage
 
-1. **Download the script** from the admin panel (Script is personalized per user)
+1. **Download the script** from the dashboard (navigate to `/script/download` or use the download button in the dashboard)
 
-2. **Make it executable** (browsers don't preserve executable permissions):
+   **Important:** The script is personalized per website. It uses the `APP_URL` from your `.env` file to know which website to send backups to. Make sure your `APP_URL` is set correctly in your `.env` file before downloading the script, as this URL is embedded in the script and used for all API communications.
+
+2. **Run the script**:
+
+   The script will automatically make itself executable on first run. You can run it using:
+
+```bash
+bash respaldo.sh
+```
+
+   Alternatively, if you prefer to make it executable manually:
 
 ```bash
 chmod +x respaldo.sh
+./respaldo.sh
 ```
 
-**Note:** After downloading, the script needs to be made executable. This is a security feature of browsers - they don't automatically make downloaded files executable.
+**Script Features:**
 
-3. **Run the script**:
+The CLI script provides an interactive menu with the following options:
+
+1. **List apps** - View all your apps with their IDs and names
+2. **Create a new app** – Create an app directly from the command line (you’ll be prompted for the app name and storage size in GB).
+3. **Create backup** - Backup the current directory (or a specified directory) to an app
+   - Automatically reads `.gitignore` or `.respaldoignore` files
+   - Creates a compressed tar.gz archive
+   - Checks available storage space
+   - Uploads the backup to the server
+   - Saves app association for the directory (so future backups are faster)
+4. **Download backup** - Download a previous backup from any app
+   - Lists all apps
+   - Shows all backups for the selected app (most recent first)
+   - Downloads the selected backup to the current directory
+
+**Quick backup mode:**
+
+You can also run the script in non-interactive mode by passing a directory path as an argument:
 
 ```bash
-./respaldo
+respaldo /path/to/your/project
+```
+
+This will automatically use the saved app association for that directory and create a backup without showing the menu. Perfect for cron jobs!
+
+3. **Make it a global command** (optional):
+
+   To use `respaldo` as a command from anywhere on your system:
+
+```bash
+# Move the script to a directory in your PATH
+sudo mv respaldo.sh /usr/local/bin/respaldo
+
+# Make it executable (if not already)
+sudo chmod +x /usr/local/bin/respaldo
+
+# Now you can run it from anywhere:
+respaldo
+```
+
+   Or add it to your local bin directory (recommended for user-level installation):
+
+```bash
+# Create ~/bin if it doesn't exist
+mkdir -p ~/bin
+
+# Move the script
+mv respaldo.sh ~/bin/respaldo
+
+# Make it executable
+chmod +x ~/bin/respaldo
+
+# Add ~/bin to your PATH (add this to ~/.bashrc or ~/.zshrc)
+export PATH="$HOME/bin:$PATH"
+
+# Reload your shell configuration
+source ~/.bashrc  # or source ~/.zshrc
+
+# Now you can run it from anywhere:
+respaldo
 ```
 
 4. **First time setup**:
@@ -105,6 +183,38 @@ chmod +x respaldo.sh
      - Create a compressed tar.gz archive
      - Check available space
      - Upload the backup to the server
+
+### ⏰ Automated Backups with Cron
+
+You can automate backups using cron jobs. The script supports non-interactive mode when a directory path is passed as an argument.
+
+**Prerequisites:**
+
+- The directory must have been backed up at least once interactively (so the app association is saved)
+- The script must be accessible from the cron environment (use full paths)
+
+**Example cron jobs:**
+
+```bash
+# Edit your crontab
+crontab -e
+
+# Perform a daily backup at 2 AM using the specified respaldo script and project path
+0 2 * * * /path/to/respaldo.sh /path/to/your/project
+
+# Perform a daily backup at 2 AM with logging (only if the respaldo binary has been moved to /usr/local/bin)
+0 2 * * * /usr/local/bin/respaldo /path/to/your/project >> /var/log/respaldo.log 2>&1
+```
+
+**Important Notes:**
+
+- Replace `/path/to/your/project` with the actual path to your project directory
+- Replace `/path/to/respaldo.sh` or `/usr/local/bin/respaldo` with the actual path to your script
+- **First-time setup:** Run the script interactively from the project directory at least once to establish the app association. After that, cron can run it non-interactively.
+- Use full absolute paths in cron jobs (cron doesn't use your shell's PATH)
+- Make sure the script has executable permissions
+- Consider setting up Telegram notifications (see below) to get alerts if automated backups fail
+- For logging, redirect output to a log file as shown in the last example
 
 ### 📁 Ignore Files
 
@@ -240,10 +350,22 @@ php artisan ip:unban --all
 
 The CLI script provides an interactive interface for managing backups:
 
-1. **List apps** – See all your apps
-2. **Create new app** – Create a new app from the command line
-3. **Create backup** – Backup the current directory
-4. **Download backup** – Download a previous backup
+1. **List apps** – See all your apps with their IDs and names
+2. **Create new app** – Create a new app from the command line (requires app name and storage size in GB)
+3. **Create backup** – Backup the current directory (or a specified directory) to an app
+   - Automatically respects `.gitignore` or `.respaldoignore` files
+   - Creates compressed tar.gz archives
+   - Checks storage availability before uploading
+4. **Download backup** – Download a previous backup from any app
+   - Browse backups by app
+   - View backup history (most recent first)
+   - Download to current directory
+
+**Quick backup mode:** Pass a directory path as an argument for non-interactive backups (perfect for cron jobs):
+
+```bash
+respaldo /path/to/your/project
+```
 
 ---
 
