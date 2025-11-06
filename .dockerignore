@@ -24,4 +24,5 @@ CLAUDE.md
 .dockerignore
 Dockerfile
 docker-compose*.yml
+backups
 
