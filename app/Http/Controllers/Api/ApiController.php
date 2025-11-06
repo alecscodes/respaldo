@@ -10,6 +10,7 @@ use App\Models\Backup;
 use App\Services\BackupService;
 use App\Services\IpBanService;
 use App\Services\StorageConverter;
+use App\Services\TelegramNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -18,7 +19,8 @@ class ApiController extends Controller
 {
     public function __construct(
         protected BackupService $backupService,
-        protected IpBanService $ipBanService
+        protected IpBanService $ipBanService,
+        protected TelegramNotificationService $telegramService
     ) {}
 
     public function login(Request $request): JsonResponse
@@ -102,15 +104,34 @@ class ApiController extends Controller
         abort_if($app->user_id !== $request->user()->id, 403);
 
         $file = $request->file('file');
-        abort_unless($app->canBackup($file->getSize()), 400, 'Not enough storage space available.');
+        $fileSize = $file->getSize();
 
-        $backup = Backup::create([
-            'app_id' => $app->id,
-            'filename' => $file->getClientOriginalName(),
-            'file_path' => $this->backupService->createBackup($app, $file, $request->user()->id),
-            'size' => $file->getSize(),
-            'user_id' => $request->user()->id,
-        ]);
+        if (! $app->canBackup($fileSize)) {
+            $this->telegramService->sendStorageInsufficientNotification(
+                $app,
+                $fileSize,
+                $app->availableSpace()
+            );
+
+            abort(400, 'Not enough storage space available.');
+        }
+
+        try {
+            $backup = Backup::create([
+                'app_id' => $app->id,
+                'filename' => $file->getClientOriginalName(),
+                'file_path' => $this->backupService->createBackup($app, $file, $request->user()->id),
+                'size' => $fileSize,
+                'user_id' => $request->user()->id,
+            ]);
+        } catch (\Exception $e) {
+            $this->telegramService->sendBackupFailureNotification(
+                $app,
+                'Failed to create backup: '.$e->getMessage()
+            );
+
+            throw $e;
+        }
 
         return response()->json([
             'id' => $backup->id,

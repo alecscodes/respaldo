@@ -47,6 +47,7 @@ Visit `http://localhost:8000` 🎉
 - **Storage Management** – Monitor storage usage with visual indicators and enforce limits
 - **Gitignore Support** – CLI script respects `.gitignore` and `.respaldoignore` files
 - **Space Validation** – Double-check storage availability before backups
+- **Telegram Notifications** – Get instant alerts for backup failures, storage issues, and disk space warnings
 - **Two-Factor Auth** – Secure your account with 2FA
 - **Dark Mode** – Beautiful UI with light/dark themes
 - **Mobile-First** – Fully responsive design
@@ -83,6 +84,7 @@ Visit `http://localhost:8000` 🎉
 1. **Download the script** from the admin panel (Script is personalized per user)
 
 2. **Make it executable** (browsers don't preserve executable permissions):
+
 ```bash
 chmod +x respaldo.sh
 ```
@@ -90,6 +92,7 @@ chmod +x respaldo.sh
 **Note:** After downloading, the script needs to be made executable. This is a security feature of browsers - they don't automatically make downloaded files executable.
 
 3. **Run the script**:
+
 ```bash
 ./respaldo
 ```
@@ -112,6 +115,7 @@ chmod +x respaldo.sh
 ### 📁 Ignore Files
 
 The CLI script supports two ignore files to exclude files and folders from backups:
+
 - `.respaldoignore` – Custom ignore file for backups (takes precedence over .gitignore)
 - `.gitignore` – Standard Git ignore patterns (used if .respaldoignore doesn't exist)
 
@@ -140,6 +144,7 @@ temp/
 ```
 
 **Patterns work the same as `.gitignore`:**
+
 - `folder/` – Ignores the entire folder
 - `*.ext` – Ignores all files with that extension
 - `file.txt` – Ignores a specific file
@@ -152,6 +157,7 @@ The script will automatically use `.respaldoignore` if it exists, otherwise it w
 The application includes an automatic update system that allows you to update directly from the web interface.
 
 **How it works:**
+
 - Navigate to **Settings → Updates** in the app
 - Check for available updates
 - Click **Update** to pull the latest changes from the Git repository
@@ -162,9 +168,33 @@ The application includes an automatic update system that allows you to update di
   - Clears caches
 
 **Requirements:**
+
 - Application must be in a Git repository
 - Remote repository must be configured
 - Git must be available in the container
+
+### 📢 Telegram Notifications
+
+The application can send Telegram notifications for important backup events and errors. This is especially useful when running automated backups via cron jobs.
+
+**Setup:**
+
+1. Create a Telegram bot using [@BotFather](https://t.me/BotFather) on Telegram
+2. Get your bot token from BotFather
+3. Send a message to your bot
+4. Visit `https://api.telegram.org/bot<your_bot_token>/getUpdates` to find your chat ID
+5. Navigate to **Settings → Telegram** in the app
+6. Enter your bot token and chat ID
+7. Save the settings
+
+**Notifications sent for:**
+
+- **Backup Failures** – When a backup fails to create or store
+- **Insufficient Storage** – When an app doesn't have enough storage space for a backup
+- **Disk Space Warnings** – When server disk space exceeds 90% usage
+- **Storage Issues** – When the server doesn't have enough disk space for a backup
+
+**Note:** Notifications are only sent when errors occur. Successful backups don't trigger notifications to avoid spam. This ensures you're only alerted when action is needed.
 
 ### 🔒 IP Banning System
 

@@ -1,0 +1,106 @@
+<script setup lang="ts">
+import HeadingSmall from '@/components/HeadingSmall.vue';
+import InputError from '@/components/InputError.vue';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import AppLayout from '@/layouts/AppLayout.vue';
+import SettingsLayout from '@/layouts/settings/Layout.vue';
+import { edit } from '@/routes/telegram';
+import { type BreadcrumbItem } from '@/types';
+import { Form, Head } from '@inertiajs/vue3';
+
+interface Props {
+    telegram_bot_token?: string;
+    telegram_chat_id?: string;
+}
+
+defineProps<Props>();
+
+const breadcrumbItems: BreadcrumbItem[] = [
+    {
+        title: 'Telegram settings',
+        href: edit().url,
+    },
+];
+</script>
+
+<template>
+    <AppLayout :breadcrumbs="breadcrumbItems">
+        <Head title="Telegram settings" />
+
+        <SettingsLayout>
+            <div class="space-y-6">
+                <HeadingSmall
+                    title="Telegram notifications"
+                    description="Configure Telegram notifications for backup alerts and errors"
+                />
+
+                <Form
+                    :action="edit().url"
+                    method="patch"
+                    class="space-y-6"
+                    v-slot="{ errors, processing, recentlySuccessful }"
+                >
+                    <div class="grid gap-2">
+                        <Label for="telegram_bot_token"
+                            >Telegram Bot Token</Label
+                        >
+                        <Input
+                            id="telegram_bot_token"
+                            name="telegram_bot_token"
+                            type="password"
+                            :default-value="telegram_bot_token"
+                            placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+                        />
+                        <InputError
+                            class="mt-2"
+                            :message="errors.telegram_bot_token"
+                        />
+                        <p class="text-sm text-muted-foreground">
+                            Create a bot using @BotFather on Telegram to get
+                            your bot token
+                        </p>
+                    </div>
+
+                    <div class="grid gap-2">
+                        <Label for="telegram_chat_id">Telegram Chat ID</Label>
+                        <Input
+                            id="telegram_chat_id"
+                            name="telegram_chat_id"
+                            :default-value="telegram_chat_id"
+                            placeholder="123456789"
+                        />
+                        <InputError
+                            class="mt-2"
+                            :message="errors.telegram_chat_id"
+                        />
+                        <p class="text-sm text-muted-foreground">
+                            Send a message to your bot and visit
+                            https://api.telegram.org/bot&lt;your_bot_token&gt;/getUpdates
+                            to find your chat ID
+                        </p>
+                    </div>
+
+                    <div class="flex items-center gap-4">
+                        <Button :disabled="processing">Save</Button>
+
+                        <Transition
+                            enter-active-class="transition ease-in-out"
+                            enter-from-class="opacity-0"
+                            leave-active-class="transition ease-in-out"
+                            leave-to-class="opacity-0"
+                        >
+                            <p
+                                v-show="recentlySuccessful"
+                                class="text-sm text-neutral-600"
+                            >
+                                Saved.
+                            </p>
+                        </Transition>
+                    </div>
+                </Form>
+            </div>
+        </SettingsLayout>
+    </AppLayout>
+</template>

@@ -5,6 +5,7 @@ use App\Http\Controllers\Settings\HomepageController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\RegistrationController;
+use App\Http\Controllers\Settings\TelegramController;
 use App\Http\Controllers\Settings\TwoFactorAuthenticationController;
 use App\Http\Controllers\Settings\UpdateController;
 use Illuminate\Support\Facades\Route;
@@ -41,4 +42,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('settings/updates/check', [UpdateController::class, 'check'])->name('updates.check');
     Route::post('settings/updates/update', [UpdateController::class, 'update'])->name('updates.update');
+
+    Route::get('settings/telegram', [TelegramController::class, 'edit'])->name('telegram.edit');
+    Route::patch('settings/telegram', [TelegramController::class, 'update'])->name('telegram.update');
 });

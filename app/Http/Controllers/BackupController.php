@@ -7,6 +7,7 @@ use App\Models\App;
 use App\Models\Backup;
 use App\Services\BackupService;
 use App\Services\StorageConverter;
+use App\Services\TelegramNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -14,7 +15,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BackupController extends Controller
 {
-    public function __construct(protected BackupService $backupService) {}
+    public function __construct(
+        protected BackupService $backupService,
+        protected TelegramNotificationService $telegramService
+    ) {}
 
     public function index(App $app): \Illuminate\Http\JsonResponse
     {
@@ -46,18 +50,33 @@ class BackupController extends Controller
         $fileSize = $file->getSize();
 
         if (! $app->canBackup($fileSize)) {
+            $this->telegramService->sendStorageInsufficientNotification(
+                $app,
+                $fileSize,
+                $app->availableSpace()
+            );
+
             return $request->wantsJson()
                 ? response()->json(['error' => 'Not enough storage space available.'], 400)
                 : redirect()->back()->with('error', 'Not enough storage space available.');
         }
 
-        $backup = Backup::create([
-            'app_id' => $app->id,
-            'filename' => $file->getClientOriginalName(),
-            'file_path' => $this->backupService->createBackup($app, $file, auth()->id()),
-            'size' => $fileSize,
-            'user_id' => auth()->id(),
-        ]);
+        try {
+            $backup = Backup::create([
+                'app_id' => $app->id,
+                'filename' => $file->getClientOriginalName(),
+                'file_path' => $this->backupService->createBackup($app, $file, auth()->id()),
+                'size' => $fileSize,
+                'user_id' => auth()->id(),
+            ]);
+        } catch (\Exception $e) {
+            $this->telegramService->sendBackupFailureNotification(
+                $app,
+                'Failed to create backup: '.$e->getMessage()
+            );
+
+            throw $e;
+        }
 
         return $request->wantsJson()
             ? response()->json(['message' => 'Backup created successfully.'], 201)
