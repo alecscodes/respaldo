@@ -66,24 +66,4 @@ class Setting extends Model
             FILTER_VALIDATE_BOOLEAN
         );
     }
-
-    /**
-     * Check if homepage is allowed.
-     * Homepage is allowed if:
-     * 1. The homepage_enabled setting is true, OR
-     * 2. No users exist in the system (initial setup).
-     */
-    public static function isHomepageAllowed(): bool
-    {
-        // Allow homepage if no users exist (initial setup)
-        if (User::count() === 0) {
-            return true;
-        }
-
-        // Otherwise, check the setting (defaults to false)
-        return filter_var(
-            static::get('homepage_enabled', false),
-            FILTER_VALIDATE_BOOLEAN
-        );
-    }
 }

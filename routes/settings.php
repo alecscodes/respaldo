@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Settings\BannedIpsController;
-use App\Http\Controllers\Settings\HomepageController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\RegistrationController;
@@ -33,9 +32,6 @@ Route::middleware('auth')->group(function () {
 
     Route::get('settings/registration', [RegistrationController::class, 'edit'])->name('registration.edit');
     Route::patch('settings/registration', [RegistrationController::class, 'update'])->name('registration.update');
-
-    Route::get('settings/homepage', [HomepageController::class, 'edit'])->name('homepage.edit');
-    Route::patch('settings/homepage', [HomepageController::class, 'update'])->name('homepage.update');
 
     Route::get('settings/banned-ips', [BannedIpsController::class, 'index'])->name('banned-ips.index');
     Route::delete('settings/banned-ips/unban', [BannedIpsController::class, 'destroy'])->name('banned-ips.destroy');

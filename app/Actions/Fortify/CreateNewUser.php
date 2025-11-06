@@ -51,7 +51,6 @@ class CreateNewUser implements CreatesNewUsers
         // Automatically disable registration after first user is created
         if ($isFirstUser) {
             Setting::set('registration_enabled', '0');
-            Setting::set('homepage_enabled', '0');
         }
 
         return $user;

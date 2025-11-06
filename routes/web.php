@@ -9,11 +9,6 @@ use Inertia\Inertia;
 use Laravel\Fortify\Features;
 
 Route::get('/', function () {
-    // Block access to homepage if homepage is disabled
-    if (! \App\Models\Setting::isHomepageAllowed()) {
-        abort(403, 'Homepage is currently disabled.');
-    }
-
     return Inertia::render('Welcome', [
         'canRegister' => Features::enabled(Features::registration()) && \App\Models\Setting::isRegistrationAllowed(),
     ]);
