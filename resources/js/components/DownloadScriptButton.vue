@@ -8,8 +8,8 @@ const downloadScript = () => {
 </script>
 
 <template>
-    <Button @click="downloadScript">
-        <Download class="mr-2 h-4 w-4" />
-        Download Script
+    <Button @click="downloadScript" class="w-full sm:w-auto">
+        <Download class="mr-2 h-4 w-4 flex-shrink-0" />
+        <span class="truncate">Download Script</span>
     </Button>
 </template>
