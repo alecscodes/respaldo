@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import BackupList from '@/components/BackupList.vue';
 import DeleteAppConfirmationDialog from '@/components/DeleteAppConfirmationDialog.vue';
-import DownloadScriptButton from '@/components/DownloadScriptButton.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -174,7 +173,6 @@ const handleUploadSuccess = () => {
                 </div>
 
                 <div class="flex gap-2">
-                    <DownloadScriptButton />
                     <Button variant="destructive" @click="openDeleteDialog">
                         <Trash2 class="mr-2 h-4 w-4" />
                         Delete App

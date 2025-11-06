@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DownloadScriptButton from '@/components/DownloadScriptButton.vue';
 import UpdateNotification from '@/components/UpdateNotification.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { dashboard } from '@/routes';
@@ -158,16 +159,30 @@ const percentageColor = computed(() => {
                     </div>
                 </div>
 
-                <!-- Placeholder cards for future features -->
+                <!-- CLI Script Card -->
                 <div
-                    class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border"
+                    class="relative overflow-hidden rounded-xl border border-sidebar-border/70 bg-sidebar p-6 dark:border-sidebar-border"
                 >
-                    <div class="flex h-full items-center justify-center">
-                        <p class="text-sm text-sidebar-foreground/50">
-                            Coming soon
-                        </p>
+                    <div class="flex h-full flex-col gap-4">
+                        <div>
+                            <h3
+                                class="text-sm font-medium text-sidebar-foreground/70"
+                            >
+                                CLI Script
+                            </h3>
+                            <p class="mt-1 text-xs text-sidebar-foreground/50">
+                                Download the command-line script to manage
+                                backups from your terminal
+                            </p>
+                        </div>
+
+                        <div class="mt-auto">
+                            <DownloadScriptButton />
+                        </div>
                     </div>
                 </div>
+
+                <!-- Placeholder card for future features -->
                 <div
                     class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border"
                 >
