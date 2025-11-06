@@ -4,8 +4,20 @@ import UpdateNotification from '@/components/UpdateNotification.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { dashboard } from '@/routes';
 import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
+
+interface Backup {
+    id: number;
+    filename: string;
+    size: number;
+    size_bytes: number;
+    created_at: string;
+    app: {
+        id: number;
+        name: string;
+    };
+}
 
 interface Props {
     backupDiskSpace?: {
@@ -15,6 +27,7 @@ interface Props {
         percentage_used: number;
         path: string;
     };
+    latestBackups?: Backup[];
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -25,6 +38,7 @@ const props = withDefaults(defineProps<Props>(), {
         percentage_used: 0,
         path: '',
     }),
+    latestBackups: () => [],
 });
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -63,6 +77,17 @@ const percentageColor = computed(() => {
     }
     return 'bg-green-500';
 });
+
+const formatGb = (gb: number): string => {
+    if (gb < 0.01) {
+        return '< 0.01 GB';
+    }
+    return `${gb.toFixed(2)} GB`;
+};
+
+const formatDate = (date: string): string => {
+    return new Date(date).toLocaleString();
+};
 </script>
 
 <template>
@@ -193,13 +218,70 @@ const percentageColor = computed(() => {
                     </div>
                 </div>
             </div>
+
+            <!-- Latest Backups Card -->
             <div
-                class="relative min-h-[100vh] flex-1 rounded-xl border border-sidebar-border/70 md:min-h-min dark:border-sidebar-border"
+                class="relative overflow-hidden rounded-xl border border-sidebar-border/70 bg-sidebar p-6 dark:border-sidebar-border"
             >
-                <div class="flex h-full items-center justify-center">
-                    <p class="text-sm text-sidebar-foreground/50">
-                        More content coming soon
-                    </p>
+                <div class="flex flex-col gap-4">
+                    <div>
+                        <h3
+                            class="text-sm font-medium text-sidebar-foreground/70"
+                        >
+                            Latest Backups
+                        </h3>
+                        <p class="mt-1 text-xs text-sidebar-foreground/50">
+                            Recent backup activity across all your apps
+                        </p>
+                    </div>
+
+                    <div
+                        v-if="props.latestBackups.length === 0"
+                        class="py-8 text-center"
+                    >
+                        <p class="text-sm text-sidebar-foreground/50">
+                            No backups yet. Use the CLI script to create your
+                            first backup.
+                        </p>
+                    </div>
+
+                    <div v-else class="space-y-3">
+                        <div
+                            class="grid grid-cols-12 gap-4 border-b border-sidebar-border/50 pb-2 text-xs font-medium text-sidebar-foreground/70"
+                        >
+                            <div class="col-span-5">Filename</div>
+                            <div class="col-span-2">App</div>
+                            <div class="col-span-2">Size</div>
+                            <div class="col-span-3">Created At</div>
+                        </div>
+                        <div
+                            v-for="backup in props.latestBackups"
+                            :key="backup.id"
+                            class="grid grid-cols-12 gap-4 border-b border-sidebar-border/50 py-2 text-sm"
+                        >
+                            <div
+                                class="col-span-5 truncate font-medium text-sidebar-foreground"
+                            >
+                                {{ backup.filename }}
+                            </div>
+                            <div class="col-span-2">
+                                <Link
+                                    :href="`/apps/${backup.app.id}`"
+                                    class="text-sidebar-foreground/70 hover:text-sidebar-foreground hover:underline"
+                                >
+                                    {{ backup.app.name }}
+                                </Link>
+                            </div>
+                            <div class="col-span-2 text-sidebar-foreground/70">
+                                {{ formatGb(backup.size) }}
+                            </div>
+                            <div
+                                class="col-span-3 text-xs text-sidebar-foreground/50"
+                            >
+                                {{ formatDate(backup.created_at) }}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
