@@ -16,6 +16,10 @@ const sidebarNavItems: NavItem[] = [
         href: editProfile(),
     },
     {
+        title: 'Banned IPs',
+        href: '/settings/banned-ips',
+    },
+    {
         title: 'Password',
         href: editPassword(),
     },
@@ -26,10 +30,6 @@ const sidebarNavItems: NavItem[] = [
     {
         title: 'Appearance',
         href: editAppearance(),
-    },
-    {
-        title: 'Banned IPs',
-        href: '/settings/banned-ips',
     },
 ];
 
