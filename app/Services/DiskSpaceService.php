@@ -38,9 +38,9 @@ class DiskSpaceService
         $percentageUsed = $totalSpace > 0 ? ($usedSpace / $totalSpace) * 100 : 0;
 
         return [
-            'total' => $totalSpace,
-            'used' => $usedSpace,
-            'available' => $freeSpace,
+            'total' => (int) $totalSpace,
+            'used' => (int) $usedSpace,
+            'available' => (int) $freeSpace,
             'percentage_used' => round($percentageUsed, 2),
             'path' => $backupPath,
         ];

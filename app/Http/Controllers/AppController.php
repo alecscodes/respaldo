@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreAppRequest;
 use App\Http\Requests\UpdateAppRequest;
 use App\Models\App;
+use App\Models\Backup;
 use App\Services\BackupService;
 use App\Services\StorageConverter;
 use Illuminate\Http\RedirectResponse;
@@ -17,7 +18,7 @@ class AppController extends Controller
 
     public function index(): Response
     {
-        $apps = App::where('user_id', auth()->id())->get()->map(fn ($app) => [
+        $apps = App::where('user_id', auth()->id())->get()->map(fn (App $app) => [
             'id' => $app->id,
             'name' => $app->name,
             'storage_size' => $app->storage_size_gb,
@@ -47,6 +48,9 @@ class AppController extends Controller
     {
         abort_if($app->user_id !== auth()->id(), 403);
 
+        /** @var \Illuminate\Database\Eloquent\Collection<int, Backup> $backups */
+        $backups = $app->backups()->latest()->get();
+
         return Inertia::render('Apps/Show', [
             'app' => [
                 'id' => $app->id,
@@ -58,7 +62,7 @@ class AppController extends Controller
                 'available_space' => StorageConverter::bytesToGb($app->availableSpace()),
                 'available_space_bytes' => $app->availableSpace(),
             ],
-            'backups' => $app->backups()->latest()->get()->map(fn ($backup) => [
+            'backups' => $backups->map(fn (Backup $backup) => [
                 'id' => $backup->id,
                 'filename' => $backup->filename,
                 'size' => StorageConverter::bytesToGb($backup->size),
@@ -82,6 +86,7 @@ class AppController extends Controller
         abort_if($app->user_id !== auth()->id(), 403);
 
         // Delete all backup files before deleting the app
+        /** @var Backup $backup */
         foreach ($app->backups as $backup) {
             $this->backupService->deleteBackup($backup->file_path);
         }

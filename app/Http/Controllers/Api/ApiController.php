@@ -46,7 +46,7 @@ class ApiController extends Controller
 
     public function apps(Request $request): JsonResponse
     {
-        $apps = App::where('user_id', $request->user()->id)->get()->map(fn ($app) => [
+        $apps = App::where('user_id', $request->user()->id)->get()->map(fn (App $app) => [
             'id' => $app->id,
             'name' => $app->name,
             'storage_size' => StorageConverter::bytesToGb($app->storage_size),
@@ -76,8 +76,11 @@ class ApiController extends Controller
     {
         abort_if($app->user_id !== $request->user()->id, 403);
 
+        /** @var \Illuminate\Database\Eloquent\Collection<int, Backup> $backups */
+        $backups = $app->backups()->latest()->get();
+
         return response()->json(
-            $app->backups()->latest()->get()->map(fn ($backup) => [
+            $backups->map(fn (Backup $backup) => [
                 'id' => $backup->id,
                 'filename' => $backup->filename,
                 'size' => StorageConverter::bytesToGb($backup->size),

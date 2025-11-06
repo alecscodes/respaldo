@@ -24,8 +24,11 @@ class BackupController extends Controller
     {
         abort_if($app->user_id !== auth()->id(), 403);
 
+        /** @var \Illuminate\Database\Eloquent\Collection<int, Backup> $backups */
+        $backups = $app->backups()->latest()->get();
+
         return response()->json(
-            $app->backups()->latest()->get()->map(fn ($backup) => [
+            $backups->map(fn (Backup $backup) => [
                 'id' => $backup->id,
                 'filename' => $backup->filename,
                 'size' => StorageConverter::bytesToGb($backup->size),

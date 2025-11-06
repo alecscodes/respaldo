@@ -52,7 +52,7 @@ class FailedLoginAttempt extends Model
             ->where('email', $email)
             ->first();
 
-        return $attempt?->attempts_count ?? 0;
+        return $attempt !== null ? $attempt->attempts_count : 0;
     }
 
     /**

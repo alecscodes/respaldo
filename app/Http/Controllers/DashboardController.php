@@ -17,28 +17,35 @@ class DashboardController extends Controller
     {
         $diskSpace = $this->diskSpaceService->getBackupDiskSpace();
 
-        $latestBackups = Backup::where('user_id', auth()->id())
+        /** @var \Illuminate\Database\Eloquent\Collection<int, Backup> $latestBackupsCollection */
+        $latestBackupsCollection = Backup::where('user_id', auth()->id())
             ->with('app:id,name')
             ->latest()
             ->limit(10)
-            ->get()
-            ->map(fn ($backup) => [
+            ->get();
+
+        $latestBackups = $latestBackupsCollection->map(function (Backup $backup) {
+            /** @var App|null $app */
+            $app = $backup->app;
+
+            return [
                 'id' => $backup->id,
                 'filename' => $backup->filename,
                 'size' => StorageConverter::bytesToGb($backup->size),
                 'size_bytes' => $backup->size,
                 'created_at' => $backup->created_at->toIso8601String(),
-                'app' => [
-                    'id' => $backup->app->id,
-                    'name' => $backup->app->name,
-                ],
-            ]);
+                'app' => $app !== null ? [
+                    'id' => $app->id,
+                    'name' => $app->name,
+                ] : null,
+            ];
+        });
 
         $latestApps = App::where('user_id', auth()->id())
             ->latest()
             ->limit(5)
             ->get()
-            ->map(fn ($app) => [
+            ->map(fn (App $app) => [
                 'id' => $app->id,
                 'name' => $app->name,
                 'created_at' => $app->created_at->toIso8601String(),
