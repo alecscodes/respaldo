@@ -136,18 +136,7 @@ This will automatically use the saved app association for that directory and cre
 
    To use `respaldo` as a command from anywhere on your system:
 
-```bash
-# Move the script to a directory in your PATH
-sudo mv respaldo.sh /usr/local/bin/respaldo
-
-# Make it executable (if not already)
-sudo chmod +x /usr/local/bin/respaldo
-
-# Now you can run it from anywhere:
-respaldo
-```
-
-   Or add it to your local bin directory (recommended for user-level installation):
+   Add it to your local bin directory (recommended for user-level installation):
 
 ```bash
 # Create ~/bin if it doesn't exist
@@ -164,6 +153,19 @@ export PATH="$HOME/bin:$PATH"
 
 # Reload your shell configuration
 source ~/.bashrc  # or source ~/.zshrc
+
+# Now you can run it from anywhere:
+respaldo
+```
+
+   Or move the script to a system-wide directory in your PATH:
+
+```bash
+# Move the script to a directory in your PATH
+sudo mv respaldo.sh /usr/local/bin/respaldo
+
+# Make it executable (if not already)
+sudo chmod +x /usr/local/bin/respaldo
 
 # Now you can run it from anywhere:
 respaldo
