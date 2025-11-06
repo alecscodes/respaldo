@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\Settings\BannedIpsController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\TwoFactorAuthenticationController;
+use App\Http\Controllers\Settings\UpdateController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -25,4 +27,10 @@ Route::middleware('auth')->group(function () {
 
     Route::get('settings/two-factor', [TwoFactorAuthenticationController::class, 'show'])
         ->name('two-factor.show');
+
+    Route::get('settings/banned-ips', [BannedIpsController::class, 'index'])->name('banned-ips.index');
+    Route::delete('settings/banned-ips/unban', [BannedIpsController::class, 'destroy'])->name('banned-ips.destroy');
+
+    Route::get('settings/updates/check', [UpdateController::class, 'check'])->name('updates.check');
+    Route::post('settings/updates/update', [UpdateController::class, 'update'])->name('updates.update');
 });
