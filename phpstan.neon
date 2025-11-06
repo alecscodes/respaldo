@@ -1,0 +1,19 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app/
+        - database/
+
+    # Level 10 is the highest level
+    level: 5
+
+    # Ignore common Laravel magic patterns (uncomment as needed)
+    # ignoreErrors:
+    #     - '#PHPDoc tag @var#'
+
+    # Exclude test files from analysis
+    excludePaths:
+        - ./*/*/FileToBeExcluded.php
+
