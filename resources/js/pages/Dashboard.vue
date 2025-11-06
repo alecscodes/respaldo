@@ -364,15 +364,6 @@ onClickOutside(instructionsRef, () => {
                                                     0 2 * * * respaldo
                                                     /path/to/project
                                                 </div>
-                                                <div
-                                                    class="mt-3 text-sidebar-foreground/50"
-                                                >
-                                                    # Weekly backup on Sundays
-                                                </div>
-                                                <div class="mt-1">
-                                                    0 3 * * 0 respaldo
-                                                    /path/to/project
-                                                </div>
                                             </div>
                                         </div>
                                     </div>
