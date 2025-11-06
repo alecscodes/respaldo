@@ -2,9 +2,8 @@
 
 use App\Http\Controllers\AppController;
 use App\Http\Controllers\BackupController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ScriptController;
-use App\Models\Backup;
-use App\Services\StorageConverter;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -20,40 +19,8 @@ Route::get('/', function () {
     ]);
 })->name('home');
 
-Route::get('dashboard', function () {
-    $diskSpaceService = app(\App\Services\DiskSpaceService::class);
-    $diskSpace = $diskSpaceService->getBackupDiskSpace();
-
-    $latestBackups = Backup::where('user_id', auth()->id())
-        ->with('app:id,name')
-        ->latest()
-        ->limit(10)
-        ->get()
-        ->map(fn ($backup) => [
-            'id' => $backup->id,
-            'filename' => $backup->filename,
-            'size' => StorageConverter::bytesToGb($backup->size),
-            'size_bytes' => $backup->size,
-            'created_at' => $backup->created_at->toIso8601String(),
-            'app' => [
-                'id' => $backup->app->id,
-                'name' => $backup->app->name,
-            ],
-        ]);
-
-    return Inertia::render('Dashboard', [
-        'backupDiskSpace' => [
-            'total' => $diskSpace['total'],
-            'used' => $diskSpace['used'],
-            'available' => $diskSpace['available'],
-            'percentage_used' => $diskSpace['percentage_used'],
-            'path' => $diskSpace['path'],
-        ],
-        'latestBackups' => $latestBackups,
-    ]);
-})->middleware(['auth', 'verified'])->name('dashboard');
-
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::resource('apps', AppController::class);
     Route::get('apps/{app}/backups', [BackupController::class, 'index'])->name('apps.backups');
     Route::post('apps/{app}/backups', [BackupController::class, 'store'])->name('backups.store');
