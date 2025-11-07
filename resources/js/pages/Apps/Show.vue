@@ -3,6 +3,7 @@ import AppForm from '@/components/AppForm.vue';
 import BackupList from '@/components/BackupList.vue';
 import DeleteAppConfirmationDialog from '@/components/DeleteAppConfirmationDialog.vue';
 import InputError from '@/components/InputError.vue';
+import { ActionSheet, ActionSheetRoot } from '@/components/ui/action-sheet';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -21,8 +22,14 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { ArrowLeft, Pencil, Trash2, Upload } from 'lucide-vue-next';
-import { ref } from 'vue';
+import {
+    ArrowLeft,
+    MoreVertical,
+    Pencil,
+    Trash2,
+    Upload,
+} from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface App {
     id: number;
@@ -49,6 +56,7 @@ const props = defineProps<Props>();
 const showUploadDialog = ref(false);
 const showDeleteDialog = ref(false);
 const showEditDialog = ref(false);
+const showActionSheet = ref(false);
 const uploadFile = ref<File | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
@@ -157,6 +165,33 @@ const handleUploadSuccess = () => {
     }
     router.reload({ only: ['backups', 'app'] });
 };
+
+const actionSheetButtons = computed(() => [
+    {
+        text: 'Edit App',
+        icon: Pencil,
+        handler: () => {
+            showEditDialog.value = true;
+            showActionSheet.value = false;
+        },
+    },
+    {
+        text: 'Delete App',
+        icon: Trash2,
+        role: 'destructive' as const,
+        handler: () => {
+            openDeleteDialog();
+            showActionSheet.value = false;
+        },
+    },
+    {
+        text: 'Cancel',
+        role: 'cancel' as const,
+        handler: () => {
+            showActionSheet.value = false;
+        },
+    },
+]);
 </script>
 
 <template>
@@ -181,7 +216,8 @@ const handleUploadSuccess = () => {
                     </div>
                 </div>
 
-                <div class="flex gap-2">
+                <!-- Desktop: Show buttons, Mobile: Show 3-dot menu -->
+                <div class="hidden gap-2 md:flex">
                     <Button variant="outline" @click="showEditDialog = true">
                         <Pencil class="mr-2 h-4 w-4" />
                         Edit App
@@ -189,6 +225,17 @@ const handleUploadSuccess = () => {
                     <Button variant="destructive" @click="openDeleteDialog">
                         <Trash2 class="mr-2 h-4 w-4" />
                         Delete App
+                    </Button>
+                </div>
+
+                <!-- Mobile: 3-dot menu -->
+                <div class="md:hidden">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        @click="showActionSheet = true"
+                    >
+                        <MoreVertical class="h-5 w-5" />
                     </Button>
                 </div>
             </div>
@@ -436,6 +483,15 @@ const handleUploadSuccess = () => {
                 :backup-count="props.backups.length"
                 @confirm="confirmDelete"
             />
+
+            <!-- Mobile Action Sheet -->
+            <ActionSheetRoot v-model:open="showActionSheet">
+                <ActionSheet
+                    :buttons="actionSheetButtons"
+                    :header="props.app.name"
+                    @action="showActionSheet = false"
+                />
+            </ActionSheetRoot>
         </div>
     </AppLayout>
 </template>

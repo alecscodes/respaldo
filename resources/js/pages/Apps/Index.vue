@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppForm from '@/components/AppForm.vue';
+import { ActionSheet, ActionSheetRoot } from '@/components/ui/action-sheet';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -19,8 +20,8 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { HardDrive, Pencil, Plus, Server } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { HardDrive, MoreVertical, Pencil, Plus, Server } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface App {
     id: number;
@@ -47,6 +48,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 const showCreateDialog = ref(false);
 const showEditDialog = ref(false);
 const editingApp = ref<App | null>(null);
+const showActionSheet = ref(false);
+const actionSheetApp = ref<App | null>(null);
 
 const formatGb = (gb: number): string => {
     return `${gb.toFixed(2)} GB`;
@@ -69,6 +72,36 @@ const handleEditSuccess = () => {
     editingApp.value = null;
     router.reload({ only: ['apps'] });
 };
+
+const openActionSheet = (app: App) => {
+    actionSheetApp.value = app;
+    showActionSheet.value = true;
+};
+
+const actionSheetButtons = computed(() => {
+    if (!actionSheetApp.value) {
+        return [];
+    }
+
+    return [
+        {
+            text: 'View Details',
+            icon: HardDrive,
+            handler: () => {
+                showActionSheet.value = false;
+                router.visit(`/apps/${actionSheetApp.value!.id}`);
+            },
+        },
+        {
+            text: 'Edit App',
+            icon: Pencil,
+            handler: () => {
+                openEditDialog(actionSheetApp.value!);
+                showActionSheet.value = false;
+            },
+        },
+    ];
+});
 </script>
 
 <template>
@@ -84,24 +117,41 @@ const handleEditSuccess = () => {
                     </p>
                 </div>
 
-                <Dialog v-model:open="showCreateDialog">
-                    <DialogTrigger as-child>
-                        <Button>
-                            <Plus class="mr-2 h-4 w-4" />
-                            Add App
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Create New App</DialogTitle>
-                            <DialogDescription>
-                                Create a new app to manage backups. You'll set
-                                the storage size limit.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <AppForm @success="showCreateDialog = false" />
-                    </DialogContent>
-                </Dialog>
+                <!-- Desktop: Show button, Mobile: Show 3-dot menu -->
+                <div class="hidden md:block">
+                    <Dialog v-model:open="showCreateDialog">
+                        <DialogTrigger as-child>
+                            <Button>
+                                <Plus class="mr-2 h-4 w-4" />
+                                Add App
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Create New App</DialogTitle>
+                                <DialogDescription>
+                                    Create a new app to manage backups. You'll
+                                    set the storage size limit.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <AppForm @success="showCreateDialog = false" />
+                        </DialogContent>
+                    </Dialog>
+                </div>
+
+                <!-- Mobile: 3-dot menu -->
+                <div class="md:hidden">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        @click="
+                            actionSheetApp = null;
+                            showActionSheet = true;
+                        "
+                    >
+                        <MoreVertical class="h-5 w-5" />
+                    </Button>
+                </div>
             </div>
 
             <div
@@ -128,13 +178,32 @@ const handleEditSuccess = () => {
                     class="transition-shadow hover:shadow-md"
                 >
                     <CardHeader>
-                        <CardTitle class="text-lg">{{ app.name }}</CardTitle>
-                        <CardDescription
-                            >Created
-                            {{
-                                new Date(app.created_at).toLocaleDateString()
-                            }}</CardDescription
-                        >
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex-1">
+                                <CardTitle class="text-lg">{{
+                                    app.name
+                                }}</CardTitle>
+                                <CardDescription
+                                    >Created
+                                    {{
+                                        new Date(
+                                            app.created_at,
+                                        ).toLocaleDateString()
+                                    }}</CardDescription
+                                >
+                            </div>
+                            <!-- Mobile: 3-dot menu -->
+                            <div class="md:hidden">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    class="h-8 w-8"
+                                    @click="openActionSheet(app)"
+                                >
+                                    <MoreVertical class="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
                     </CardHeader>
                     <CardContent class="space-y-4">
                         <div class="space-y-2">
@@ -193,7 +262,8 @@ const handleEditSuccess = () => {
                             </div>
                         </div>
 
-                        <div class="flex gap-2">
+                        <!-- Desktop: Show buttons -->
+                        <div class="hidden gap-2 md:flex">
                             <Button as-child variant="outline" class="flex-1">
                                 <Link :href="`/apps/${app.id}`">
                                     <HardDrive class="mr-2 h-4 w-4" />
@@ -227,6 +297,28 @@ const handleEditSuccess = () => {
                     />
                 </DialogContent>
             </Dialog>
+
+            <!-- Mobile Action Sheet -->
+            <ActionSheetRoot v-model:open="showActionSheet">
+                <ActionSheet
+                    :buttons="
+                        actionSheetApp
+                            ? actionSheetButtons
+                            : [
+                                  {
+                                      text: 'Add App',
+                                      icon: Plus,
+                                      handler: () => {
+                                          showCreateDialog = true;
+                                          showActionSheet = false;
+                                      },
+                                  },
+                              ]
+                    "
+                    :header="actionSheetApp ? actionSheetApp.name : 'Apps'"
+                    @action="showActionSheet = false"
+                />
+            </ActionSheetRoot>
         </div>
     </AppLayout>
 </template>
