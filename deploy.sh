@@ -43,55 +43,40 @@ fi
 # Clean up backup files created by sed
 rm -f .env.bak
 
-# Git pull if updating (stash local changes if needed)
+# Git: Always match remote repository exactly (discard all local changes)
 if [ -d .git ]; then
-    log "Pulling latest changes..."
-    STASHED=false
+    log "Resetting to match remote repository exactly..."
 
-    # Try to pull first (use merge strategy for divergent branches)
-    PULL_OUTPUT=$(git pull --no-rebase 2>&1)
-    PULL_EXIT=$?
+    # Get current branch name
+    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
 
-    # Check if pull failed due to local changes
-    if [ $PULL_EXIT -ne 0 ] && echo "$PULL_OUTPUT" | grep -q "would be overwritten by merge"; then
-        # Pull failed due to local changes - stash and retry
-        warn "Local changes detected, stashing them..."
-        git stash push -m "Deploy script auto-stash $(date +%Y-%m-%d_%H:%M:%S)" || true
-        STASHED=true
+    # Abort any ongoing merge/rebase/cherry-pick operations
+    log "Aborting any ongoing git operations..."
+    git merge --abort 2>/dev/null || true
+    git rebase --abort 2>/dev/null || true
+    git cherry-pick --abort 2>/dev/null || true
 
-        # Pull again with merge strategy
-        if git pull --no-rebase; then
-            log "Successfully pulled latest changes"
-        else
-            warn "Git pull failed after stashing"
-        fi
+    # Fetch latest from remote
+    log "Fetching latest from origin..."
+    git fetch origin || warn "Failed to fetch from origin"
 
-        # Discard stashed changes (deployment should use remote version)
-        if [ "$STASHED" = "true" ]; then
-            warn "Discarding local changes in favor of remote version..."
-            git stash drop || true
-        fi
-    # Check if pull failed due to divergent branches
-    elif [ $PULL_EXIT -ne 0 ] && (echo "$PULL_OUTPUT" | grep -q "divergent branches" || echo "$PULL_OUTPUT" | grep -q "Need to specify how to reconcile"); then
-        warn "Divergent branches detected, fetching and merging remote changes..."
-        # Fetch first to get remote changes
-        git fetch origin || true
-        CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-        # Try to merge with remote (prefer remote in case of conflicts for deployment)
-        if git merge -X theirs "origin/$CURRENT_BRANCH" 2>/dev/null; then
-            log "Successfully merged remote changes (preferred remote version)"
-        elif git merge "origin/$CURRENT_BRANCH" 2>/dev/null; then
-            log "Successfully merged remote changes"
-        else
-            warn "Merge failed - resetting to remote version for deployment..."
-            # For deployment, prefer remote version - reset to remote
-            git reset --hard "origin/$CURRENT_BRANCH" || warn "Reset failed"
-        fi
-    elif [ $PULL_EXIT -eq 0 ]; then
-        log "Successfully pulled latest changes"
-    else
-        warn "Git pull failed: $PULL_OUTPUT"
-    fi
+    # Reset hard to remote branch (discards ALL local changes)
+    log "Resetting to origin/$CURRENT_BRANCH (discarding all local changes)..."
+    git reset --hard "origin/$CURRENT_BRANCH" || {
+        warn "Failed to reset to origin/$CURRENT_BRANCH, trying origin/main..."
+        git reset --hard origin/main || warn "Failed to reset to origin/main"
+    }
+
+    # Clean untracked files and directories (optional - uncomment if you want to remove untracked files too)
+    # log "Cleaning untracked files..."
+    # git clean -fd || true
+
+    # Verify we're on the correct branch and up to date
+    log "Verifying repository state..."
+    git checkout "$CURRENT_BRANCH" 2>/dev/null || git checkout main 2>/dev/null || true
+    git reset --hard "origin/$CURRENT_BRANCH" 2>/dev/null || git reset --hard origin/main 2>/dev/null || true
+
+    log "Repository now matches remote exactly"
 fi
 
 # Install dependencies
