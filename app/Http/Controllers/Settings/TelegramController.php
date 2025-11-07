@@ -55,7 +55,9 @@ class TelegramController extends Controller
             $success = $telegramService->sendNotification('Respaldo message delivered 🔄');
         } catch (\Exception $e) {
             $success = false;
-        } finally {
+        }
+
+        if (! $success) {
             Setting::set('telegram_bot_token', $originalToken);
             Setting::set('telegram_chat_id', $originalChatId);
         }
