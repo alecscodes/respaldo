@@ -58,7 +58,7 @@ function formatDate(dateString: string): string {
         <SettingsLayout>
             <div class="space-y-6">
                 <HeadingSmall
-                    title="Banned IP Addresses"
+                    :title="`Banned IP Addresses (${bannedIps.length})`"
                     description="View and manage IP addresses that have been automatically banned"
                 />
 
@@ -103,18 +103,6 @@ function formatDate(dateString: string): string {
                 </Card>
 
                 <div v-else class="space-y-4">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h3 class="text-lg font-semibold">
-                                Banned IPs ({{ bannedIps.length }})
-                            </h3>
-                            <p class="text-sm text-muted-foreground">
-                                List of all banned IP addresses, sorted by most
-                                recent
-                            </p>
-                        </div>
-                    </div>
-
                     <div class="grid gap-4">
                         <Card v-for="bannedIp in bannedIps" :key="bannedIp.ip">
                             <CardContent class="pt-6">
