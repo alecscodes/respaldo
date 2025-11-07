@@ -41,4 +41,5 @@ Route::middleware('auth')->group(function () {
 
     Route::get('settings/telegram', [TelegramController::class, 'edit'])->name('telegram.edit');
     Route::patch('settings/telegram', [TelegramController::class, 'update'])->name('telegram.update');
+    Route::post('settings/telegram/test', [TelegramController::class, 'test'])->name('telegram.test');
 });
