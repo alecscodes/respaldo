@@ -6,6 +6,35 @@ A comprehensive backup management application built with Laravel & Vue.js. Manag
 
 ## 🚀 Quick Start
 
+### Production Deployment
+
+For production deployments, use the included `deploy.sh` script:
+
+```bash
+# Make it executable (first time only)
+chmod +x deploy.sh
+
+# Run deployment (handles both fresh installs and updates)
+./deploy.sh
+```
+
+**What the script does:**
+
+- **Environment Setup**: Creates `.env` from `.env.example` if missing
+- **Interactive Prompts**: Prompts for `APP_URL` and `BACKUP_VOLUME` only if missing (with sensible defaults)
+- **Git Updates**: Automatically pulls latest changes if in a git repository
+- **Dependencies**: Installs production dependencies (`composer install --no-dev`, `npm ci`)
+- **Build**: Compiles frontend assets (`npm run build`)
+- **Database**: Generates app key, creates SQLite database, and runs migrations
+- **Optimization**: Clears caches and optimizes the application for production
+
+**Usage:**
+
+- **Fresh Install**: Run `./deploy.sh` on a new installation
+- **Update**: Run `./deploy.sh` to pull latest changes and redeploy
+
+The script is idempotent—safe to run multiple times. It only prompts for missing environment variables and skips steps that are already complete.
+
 ### Docker Deployment
 
 ```bash
