@@ -11,8 +11,12 @@ A comprehensive backup management application built with Laravel & Vue.js. Manag
 For production deployments, use the included `deploy.sh` script:
 
 ```bash
-# Make it executable (first time only)
-chmod +x deploy.sh
+# Clone the repository
+git clone https://github.com/alecscodes/respaldo.git
+cd respaldo
+
+# Make it executable (only if you have permission issues)
+# chmod +x deploy.sh
 
 # Run deployment (handles both fresh installs and updates)
 ./deploy.sh
