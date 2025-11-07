@@ -249,7 +249,7 @@ onClickOutside(instructionsRef, () => {
                                 >
                                     <div
                                         v-if="showInstructions"
-                                        class="absolute top-full left-0 z-50 mt-2 max-h-[80vh] w-[calc(100vw-3rem)] space-y-4 overflow-y-auto rounded-lg border border-sidebar-border/50 bg-sidebar p-4 text-xs text-sidebar-foreground/70 shadow-lg sm:right-0 sm:left-auto sm:w-96"
+                                        class="absolute top-full left-0 z-50 mt-2 max-h-[40vh] w-[calc(100vw-3rem)] space-y-4 overflow-y-auto rounded-lg border border-sidebar-border/50 bg-sidebar p-4 text-xs text-sidebar-foreground/70 shadow-lg sm:right-0 sm:left-auto sm:w-96"
                                     >
                                         <div class="space-y-2">
                                             <h4
