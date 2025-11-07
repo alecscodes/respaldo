@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
+import FlashToasts from '@/components/common/FlashToasts.vue';
 import {
     Card,
     CardContent,
@@ -46,5 +47,6 @@ defineProps<{
                 </Card>
             </div>
         </div>
+        <FlashToasts />
     </div>
 </template>
