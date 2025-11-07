@@ -57,6 +57,11 @@ it('can perform update when authenticated', function () {
         $this->markTestSkipped('Not a git repository');
     }
 
+    // Mock isRunningInDocker to return true to test Docker path
+    $service = $this->createPartialMock(GitUpdateService::class, ['isRunningInDocker']);
+    $service->method('isRunningInDocker')->willReturn(true);
+    $this->app->instance(GitUpdateService::class, $service);
+
     Process::fake([
         'git rev-parse HEAD' => Process::result(output: 'abc123'),
         'git rev-parse --abbrev-ref HEAD' => Process::result(output: 'main'),
@@ -64,10 +69,16 @@ it('can perform update when authenticated', function () {
         'git reset --hard origin/main' => Process::result(output: 'HEAD is now at abc123'),
         'git clean -fd' => Process::result(),
         'git diff --name-only abc123 HEAD' => Process::result(output: ''),
+        'composer install*' => Process::result(output: 'Dependencies installed'),
+        'npm ci' => Process::result(output: 'Dependencies installed'),
+        'npm run build' => Process::result(output: 'Build completed'),
+        'php artisan migrate --force' => Process::result(output: 'Migrations completed'),
         'php artisan config:clear' => Process::result(),
         'php artisan route:clear' => Process::result(),
         'php artisan view:clear' => Process::result(),
         'php artisan cache:clear' => Process::result(),
+        'php artisan optimize' => Process::result(output: 'Optimized'),
+        'composer dump-autoload*' => Process::result(output: 'Autoload dumped'),
         'chown*' => Process::result(),
     ]);
 
@@ -85,6 +96,11 @@ it('handles update failures gracefully', function () {
     if (! is_dir(base_path('.git'))) {
         $this->markTestSkipped('Not a git repository');
     }
+
+    // Mock isRunningInDocker to return true to test Docker path
+    $service = $this->createPartialMock(GitUpdateService::class, ['isRunningInDocker']);
+    $service->method('isRunningInDocker')->willReturn(true);
+    $this->app->instance(GitUpdateService::class, $service);
 
     Process::fake([
         'git rev-parse HEAD' => Process::result(output: 'abc123'),

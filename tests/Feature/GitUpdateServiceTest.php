@@ -45,10 +45,14 @@ it('returns error when not in git repository', function () {
     expect($result)->toBeArray();
 });
 
-it('performs update successfully with reset approach', function () {
+it('performs update successfully with reset approach in Docker', function () {
     if (! is_dir(base_path('.git'))) {
         $this->markTestSkipped('Not a git repository');
     }
+
+    // Mock isRunningInDocker to return true to test Docker path
+    $service = $this->createPartialMock(GitUpdateService::class, ['isRunningInDocker']);
+    $service->method('isRunningInDocker')->willReturn(true);
 
     Process::fake([
         'git rev-parse HEAD' => Process::result(output: 'abc123'),
@@ -57,14 +61,19 @@ it('performs update successfully with reset approach', function () {
         'git reset --hard origin/main' => Process::result(output: 'HEAD is now at abc123'),
         'git clean -fd' => Process::result(),
         'git diff --name-only abc123 HEAD' => Process::result(output: ''),
+        'composer install*' => Process::result(output: 'Dependencies installed'),
+        'npm ci' => Process::result(output: 'Dependencies installed'),
+        'npm run build' => Process::result(output: 'Build completed'),
+        'php artisan migrate --force' => Process::result(output: 'Migrations completed'),
         'php artisan config:clear' => Process::result(),
         'php artisan route:clear' => Process::result(),
         'php artisan view:clear' => Process::result(),
         'php artisan cache:clear' => Process::result(),
+        'php artisan optimize' => Process::result(output: 'Optimized'),
+        'composer dump-autoload*' => Process::result(output: 'Autoload dumped'),
         'chown*' => Process::result(),
     ]);
 
-    $service = app(GitUpdateService::class);
     $result = $service->performUpdate();
 
     expect($result['success'])->toBeTrue()
@@ -72,10 +81,14 @@ it('performs update successfully with reset approach', function () {
         ->and($result['error'])->toBeNull();
 });
 
-it('handles fetch failures gracefully', function () {
+it('handles fetch failures gracefully in Docker', function () {
     if (! is_dir(base_path('.git'))) {
         $this->markTestSkipped('Not a git repository');
     }
+
+    // Mock isRunningInDocker to return true to test Docker path
+    $service = $this->createPartialMock(GitUpdateService::class, ['isRunningInDocker']);
+    $service->method('isRunningInDocker')->willReturn(true);
 
     Process::fake([
         'git rev-parse HEAD' => Process::result(output: 'abc123'),
@@ -83,7 +96,6 @@ it('handles fetch failures gracefully', function () {
         'git fetch origin' => Process::result(errorOutput: 'Failed to connect', exitCode: 1),
     ]);
 
-    $service = app(GitUpdateService::class);
     $result = $service->performUpdate();
 
     expect($result['success'])->toBeFalse()
@@ -91,10 +103,14 @@ it('handles fetch failures gracefully', function () {
         ->and($result['error'])->toContain('Failed to fetch from remote');
 });
 
-it('handles reset failures gracefully', function () {
+it('handles reset failures gracefully in Docker', function () {
     if (! is_dir(base_path('.git'))) {
         $this->markTestSkipped('Not a git repository');
     }
+
+    // Mock isRunningInDocker to return true to test Docker path
+    $service = $this->createPartialMock(GitUpdateService::class, ['isRunningInDocker']);
+    $service->method('isRunningInDocker')->willReturn(true);
 
     Process::fake([
         'git rev-parse HEAD' => Process::result(output: 'abc123'),
@@ -103,7 +119,6 @@ it('handles reset failures gracefully', function () {
         'git reset --hard origin/main' => Process::result(errorOutput: 'Reset failed', exitCode: 1),
     ]);
 
-    $service = app(GitUpdateService::class);
     $result = $service->performUpdate();
 
     expect($result['success'])->toBeFalse()
@@ -111,10 +126,14 @@ it('handles reset failures gracefully', function () {
         ->and($result['error'])->toContain('Failed to reset to remote');
 });
 
-it('runs composer install when composer files changed', function () {
+it('runs composer install during update in Docker', function () {
     if (! is_dir(base_path('.git'))) {
         $this->markTestSkipped('Not a git repository');
     }
+
+    // Mock isRunningInDocker to return true to test Docker path
+    $service = $this->createPartialMock(GitUpdateService::class, ['isRunningInDocker']);
+    $service->method('isRunningInDocker')->willReturn(true);
 
     Process::fake([
         'git rev-parse HEAD' => Process::result(output: 'abc123'),
@@ -124,24 +143,32 @@ it('runs composer install when composer files changed', function () {
         'git clean -fd' => Process::result(),
         'git diff --name-only abc123 HEAD' => Process::result(output: "composer.json\ncomposer.lock"),
         'composer install*' => Process::result(output: 'Dependencies installed'),
+        'npm ci' => Process::result(output: 'Dependencies installed'),
+        'npm run build' => Process::result(output: 'Build completed'),
+        'php artisan migrate --force' => Process::result(output: 'Migrations completed'),
         'php artisan config:clear' => Process::result(),
         'php artisan route:clear' => Process::result(),
         'php artisan view:clear' => Process::result(),
         'php artisan cache:clear' => Process::result(),
+        'php artisan optimize' => Process::result(output: 'Optimized'),
+        'composer dump-autoload*' => Process::result(output: 'Autoload dumped'),
         'chown*' => Process::result(),
     ]);
 
-    $service = app(GitUpdateService::class);
     $result = $service->performUpdate();
 
     expect($result['success'])->toBeTrue()
         ->and($result['output'])->toContain('Composer Install');
 });
 
-it('runs npm ci and build when package files changed', function () {
+it('runs npm ci and build during update in Docker', function () {
     if (! is_dir(base_path('.git'))) {
         $this->markTestSkipped('Not a git repository');
     }
+
+    // Mock isRunningInDocker to return true to test Docker path
+    $service = $this->createPartialMock(GitUpdateService::class, ['isRunningInDocker']);
+    $service->method('isRunningInDocker')->willReturn(true);
 
     Process::fake([
         'git rev-parse HEAD' => Process::result(output: 'abc123'),
@@ -150,16 +177,19 @@ it('runs npm ci and build when package files changed', function () {
         'git reset --hard origin/main' => Process::result(output: 'HEAD is now at abc123'),
         'git clean -fd' => Process::result(),
         'git diff --name-only abc123 HEAD' => Process::result(output: "package.json\npackage-lock.json"),
+        'composer install*' => Process::result(output: 'Dependencies installed'),
         'npm ci' => Process::result(output: 'Dependencies installed'),
         'npm run build' => Process::result(output: 'Build completed'),
+        'php artisan migrate --force' => Process::result(output: 'Migrations completed'),
         'php artisan config:clear' => Process::result(),
         'php artisan route:clear' => Process::result(),
         'php artisan view:clear' => Process::result(),
         'php artisan cache:clear' => Process::result(),
+        'php artisan optimize' => Process::result(output: 'Optimized'),
+        'composer dump-autoload*' => Process::result(output: 'Autoload dumped'),
         'chown*' => Process::result(),
     ]);
 
-    $service = app(GitUpdateService::class);
     $result = $service->performUpdate();
 
     expect($result['success'])->toBeTrue()
@@ -167,10 +197,14 @@ it('runs npm ci and build when package files changed', function () {
         ->and($result['output'])->toContain('NPM Build');
 });
 
-it('runs npm build when frontend files changed', function () {
+it('runs npm build during update in Docker', function () {
     if (! is_dir(base_path('.git'))) {
         $this->markTestSkipped('Not a git repository');
     }
+
+    // Mock isRunningInDocker to return true to test Docker path
+    $service = $this->createPartialMock(GitUpdateService::class, ['isRunningInDocker']);
+    $service->method('isRunningInDocker')->willReturn(true);
 
     Process::fake([
         'git rev-parse HEAD' => Process::result(output: 'abc123'),
@@ -179,15 +213,19 @@ it('runs npm build when frontend files changed', function () {
         'git reset --hard origin/main' => Process::result(output: 'HEAD is now at abc123'),
         'git clean -fd' => Process::result(),
         'git diff --name-only abc123 HEAD' => Process::result(output: 'resources/js/app.js'),
+        'composer install*' => Process::result(output: 'Dependencies installed'),
+        'npm ci' => Process::result(output: 'Dependencies installed'),
         'npm run build' => Process::result(output: 'Build completed'),
+        'php artisan migrate --force' => Process::result(output: 'Migrations completed'),
         'php artisan config:clear' => Process::result(),
         'php artisan route:clear' => Process::result(),
         'php artisan view:clear' => Process::result(),
         'php artisan cache:clear' => Process::result(),
+        'php artisan optimize' => Process::result(output: 'Optimized'),
+        'composer dump-autoload*' => Process::result(output: 'Autoload dumped'),
         'chown*' => Process::result(),
     ]);
 
-    $service = app(GitUpdateService::class);
     $result = $service->performUpdate();
 
     expect($result['success'])->toBeTrue()

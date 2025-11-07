@@ -121,6 +121,37 @@ class GitUpdateService
 
         try {
             $workingDir = base_path();
+
+            // Use deploy.sh for non-Docker deployments
+            // For Docker, use manual process (git reset --hard) since deploy.sh does git pull
+            if ($this->isRunningInDocker()) {
+                return $this->runDockerUpdate($workingDir);
+            }
+
+            return $this->runDeployScript($workingDir);
+        } catch (\Exception $e) {
+            $result['error'] = $e->getMessage();
+            $result['message'] = 'Update failed: '.$e->getMessage();
+        }
+
+        return $result;
+    }
+
+    /**
+     * Run Docker update process (git reset + full deployment steps).
+     *
+     * @return array{success: bool, message: string, output: string|null, error: string|null}
+     */
+    protected function runDockerUpdate(string $workingDir): array
+    {
+        $result = [
+            'success' => false,
+            'message' => '',
+            'output' => null,
+            'error' => null,
+        ];
+
+        try {
             $this->configureGitSafeDirectory($workingDir);
 
             $branch = $this->getCurrentBranch($workingDir);
@@ -146,21 +177,64 @@ class GitUpdateService
 
             Process::path($workingDir)->run('git clean -fd');
 
-            $result['success'] = true;
-            $result['message'] = 'Update completed successfully';
             $result['output'] = trim($reset->output());
 
             $changedFiles = $this->getChangedFiles($oldCommitHash);
             $this->fixPermissions($changedFiles);
 
-            $this->handleDependencyUpdates($workingDir, $changedFiles, $result);
-            $this->clearCaches();
+            // Always run full deployment steps (like deploy.sh)
+            $this->runFullDeployment($workingDir, $result);
+
+            $result['success'] = true;
+            $result['message'] = 'Update completed successfully';
         } catch (\Exception $e) {
             $result['error'] = $e->getMessage();
             $result['message'] = 'Update failed: '.$e->getMessage();
         }
 
         return $result;
+    }
+
+    /**
+     * Run full deployment steps (composer, npm, build, migrations, optimize).
+     *
+     * @param  array<string, mixed>  $result
+     */
+    protected function runFullDeployment(string $workingDir, array &$result): void
+    {
+        // Install Composer dependencies
+        $this->runComposerInstall($workingDir, $result);
+
+        // Install NPM dependencies
+        if (file_exists($workingDir.'/package.json')) {
+            $this->runNpmInstall($workingDir, $result);
+        }
+
+        // Build assets
+        if (file_exists($workingDir.'/package.json')) {
+            $this->runNpmBuild($workingDir, $result);
+        }
+
+        // Run migrations
+        $migrate = Process::path($workingDir)->run('php artisan migrate --force');
+        if ($migrate->successful()) {
+            $result['output'] .= "\n\n=== Migrations ===\n".$migrate->output();
+        } else {
+            $result['output'] .= "\n\n=== Migrations Failed ===\n".$migrate->errorOutput();
+        }
+
+        // Clear and optimize
+        $this->clearCaches();
+
+        $optimize = Process::path($workingDir)->run('php artisan optimize');
+        if ($optimize->successful()) {
+            $result['output'] .= "\n\n=== Optimize ===\n".$optimize->output();
+        }
+
+        $dumpAutoload = Process::path($workingDir)->run('composer dump-autoload --optimize --no-interaction');
+        if ($dumpAutoload->successful()) {
+            $result['output'] .= "\n\n=== Autoload Dump ===\n".$dumpAutoload->output();
+        }
     }
 
     /**
@@ -388,5 +462,65 @@ class GitUpdateService
         } catch (\Exception $e) {
             // Silently fail
         }
+    }
+
+    /**
+     * Check if the application is running in a Docker container.
+     */
+    protected function isRunningInDocker(): bool
+    {
+        // Check for .dockerenv file (standard Docker indicator)
+        if (file_exists('/.dockerenv')) {
+            return true;
+        }
+
+        // Check cgroup for Docker indicator
+        if (file_exists('/proc/self/cgroup')) {
+            $cgroup = file_get_contents('/proc/self/cgroup');
+            if ($cgroup && str_contains($cgroup, 'docker')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Run the deploy.sh script for non-Docker deployments.
+     *
+     * @return array{success: bool, message: string, output: string|null, error: string|null}
+     */
+    protected function runDeployScript(string $workingDir): array
+    {
+        $result = [
+            'success' => false,
+            'message' => '',
+            'output' => null,
+            'error' => null,
+        ];
+
+        $deployScript = $workingDir.'/deploy.sh';
+
+        // Ensure script is executable
+        @chmod($deployScript, 0755);
+
+        // Run deploy.sh script
+        // Note: deploy.sh will prompt for APP_URL if missing, which is expected behavior
+        // In production, APP_URL should already be set, so it won't prompt
+        $deploy = Process::path($workingDir)
+            ->timeout(600) // 10 minute timeout for deployment
+            ->run('bash deploy.sh');
+
+        if ($deploy->successful()) {
+            $result['success'] = true;
+            $result['message'] = 'Update completed successfully';
+            $result['output'] = trim($deploy->output());
+        } else {
+            $result['error'] = trim($deploy->errorOutput());
+            $result['message'] = 'Update failed';
+            $result['output'] = trim($deploy->output());
+        }
+
+        return $result;
     }
 }
