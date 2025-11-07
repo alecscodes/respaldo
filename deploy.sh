@@ -21,28 +21,23 @@ if [ ! -f .env ]; then
     fi
 fi
 
-# Prompt for APP_URL if missing
-if ! grep -q "^APP_URL=" .env || grep -q "^APP_URL=$" .env; then
+# Prompt for APP_URL only if it's the same as example (http://localhost)
+current_app_url=$(grep "^APP_URL=" .env | cut -d '=' -f2- 2>/dev/null || echo "")
+if [ "$current_app_url" = "http://localhost" ]; then
     read -p "APP_URL [http://localhost:8000]: " app_url
     app_url=${app_url:-http://localhost:8000}
-    if grep -q "^APP_URL=" .env; then
-        sed -i.bak "s|^APP_URL=.*|APP_URL=$app_url|" .env
-    else
-        echo "APP_URL=$app_url" >> .env
-    fi
+    sed -i.bak "s|^APP_URL=.*|APP_URL=$app_url|" .env
     log "APP_URL set to: $app_url"
-fi
 
-# Prompt for BACKUP_VOLUME if missing
-if ! grep -q "^BACKUP_VOLUME=" .env || grep -q "^BACKUP_VOLUME=$" .env; then
-    read -p "BACKUP_VOLUME [./backups]: " backup_volume
-    backup_volume=${backup_volume:-./backups}
-    if grep -q "^BACKUP_VOLUME=" .env; then
+    # Prompt for BACKUP_VOLUME only if it's empty or default value
+    current_backup_volume=$(grep "^BACKUP_VOLUME=" .env | cut -d '=' -f2- 2>/dev/null || echo "")
+
+    if [ -z "$current_backup_volume" ] || [ "$current_backup_volume" = "./backups" ]; then
+        read -p "BACKUP_VOLUME [./backups]: " backup_volume
+        backup_volume=${backup_volume:-./backups}
         sed -i.bak "s|^BACKUP_VOLUME=.*|BACKUP_VOLUME=$backup_volume|" .env
-    else
-        echo "BACKUP_VOLUME=$backup_volume" >> .env
+        log "BACKUP_VOLUME set to: $backup_volume"
     fi
-    log "BACKUP_VOLUME set to: $backup_volume"
 fi
 
 # Clean up backup files created by sed
