@@ -53,13 +53,6 @@ fi
 log "Installing Composer dependencies..."
 composer install --no-dev --optimize-autoloader --no-interaction
 
-log "Installing NPM dependencies..."
-npm ci
-
-# Build assets
-log "Building assets..."
-npm run build
-
 # Generate key if missing
 if ! grep -q "^APP_KEY=base64:" .env; then
     log "Generating application key..."
@@ -75,6 +68,14 @@ fi
 # Run migrations
 log "Running migrations..."
 php artisan migrate --force
+
+# Install NPM dependencies
+log "Installing NPM dependencies..."
+npm ci
+
+# Build assets
+log "Building assets..."
+npm run build
 
 # Clear and optimize
 log "Clearing caches..."
