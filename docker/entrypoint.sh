@@ -13,14 +13,58 @@ log_error() { echo "${RED}[ERROR]${NC} $1"; }
 
 set_ownership() {
     if [ "${USER_ID}" != "82" ] || [ "${GROUP_ID}" != "82" ]; then
-        chown -R ${USER_ID}:${GROUP_ID} "$@"
+        chown -R ${USER_ID}:${GROUP_ID} "$@" 2>/dev/null || true
     else
-        chown -R www-data:www-data "$@"
+        chown -R www-data:www-data "$@" 2>/dev/null || true
     fi
 }
 
+# Ensure we're in the correct directory
+cd /var/www || exit 1
+
+# Fix Git directory permissions if .git exists (for update functionality)
+if [ -d "/var/www/.git" ]; then
+    log_info "Setting up Git directory permissions for updates..."
+    set_ownership /var/www
+    find /var/www -type d -exec chmod 755 {} \; 2>/dev/null || true
+    find /var/www -type f -exec chmod 664 {} \; 2>/dev/null || true
+    git config --global --add safe.directory /var/www 2>/dev/null || true
+    log_info "Git directory permissions configured successfully"
+fi
+
+# Composer
+log_info "Installing Composer dependencies..."
+composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+
+# NPM
+log_info "Installing NPM dependencies..."
+npm ci
+
+# Build assets
+log_info "Building assets..."
+npm run build
+
+# Database is always stored in backups directory for recovery
+DB_FILE="/var/www/backups/database/database.sqlite"
+
+# Export DB_DATABASE for Laravel config (only if not already set)
+[ -z "${DB_DATABASE}" ] && export DB_DATABASE="${DB_FILE}"
+
+# Create SQLite database if needed (stored in backup volume for recovery)
+if [ "${DB_CONNECTION}" = "sqlite" ] || [ -z "${DB_CONNECTION}" ]; then
+    mkdir -p /var/www/backups/database
+    [ ! -f "${DB_FILE}" ] && touch "${DB_FILE}" && set_ownership "${DB_FILE}" && chmod 664 "${DB_FILE}"
+fi
+
+# Clear optimizations first to ensure .env is read properly
+log_info "Clearing optimizations..."
+php artisan optimize:clear || true
+
 # Generate app key if missing
-[ -z "${APP_KEY}" ] && log_info "Generating application key..." && php artisan key:generate --force
+if [ -z "$(grep -E '^\s*APP_KEY\s*=' .env | sed -E 's/^\s*APP_KEY\s*=\s*//;s/"//g')" ]; then
+  log_info "Generating application key..."
+  php artisan key:generate --force
+fi
 
 # Wait for database (non-SQLite)
 if [ "${DB_CONNECTION}" != "sqlite" ] && [ -n "${DB_CONNECTION}" ]; then
@@ -31,12 +75,6 @@ if [ "${DB_CONNECTION}" != "sqlite" ] && [ -n "${DB_CONNECTION}" ]; then
     done
     log_info "Database ready!"
 fi
-
-# Database is always stored in backups directory for recovery
-DB_FILE="/var/www/backups/database/database.sqlite"
-
-# Export DB_DATABASE for Laravel config (only if not already set)
-[ -z "${DB_DATABASE}" ] && export DB_DATABASE="${DB_FILE}"
 
 # Setup directories and permissions
 log_info "Setting up Laravel directories and permissions..."
@@ -50,50 +88,13 @@ set_ownership /var/www/storage /var/www/bootstrap/cache /var/www/database /var/w
 find /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/backups -type d -exec chmod 775 {} \;
 find /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/backups -type f -exec chmod 664 {} \;
 
-# Fix Git directory permissions if .git exists (for update functionality)
-# Best practice: Set permissions at container startup, not at runtime
-if [ -d "/var/www/.git" ]; then
-    log_info "Setting up Git directory permissions for updates..."
-
-    # CRITICAL: Set ownership of entire working directory
-    # This allows Git to modify ANY file during updates (git reset --hard)
-    # Without this, Git cannot update bind-mounted files from host
-    log_info "Setting ownership of /var/www for Git operations..."
-    set_ownership /var/www
-
-    # Set base directory permissions
-    find /var/www -type d -not -path "*/vendor/*" -not -path "*/node_modules/*" -exec chmod 755 {} \; 2>/dev/null || true
-    find /var/www -type f -not -path "*/vendor/*" -not -path "*/node_modules/*" -exec chmod 644 {} \; 2>/dev/null || true
-
-    # Make shell scripts executable
-    find /var/www -type f -name "*.sh" -exec chmod 755 {} \; 2>/dev/null || true
-
-    # Configure Git to trust this directory (must be done before any git commands)
-    # We use --global here because Git refuses to run --local on an "unsafe" repo
-    git config --global --add safe.directory /var/www 2>/dev/null || true
-
-    log_info "Git directory permissions configured successfully"
-fi
-
 # Create storage symlink
 [ ! -L /var/www/public/storage ] && log_info "Creating storage symlink..." && php artisan storage:link || true
 
-# Create SQLite database if needed (stored in backup volume for recovery)
-if [ "${DB_CONNECTION}" = "sqlite" ] || [ -z "${DB_CONNECTION}" ]; then
-    [ ! -f "${DB_FILE}" ] && touch "${DB_FILE}" && set_ownership "${DB_FILE}" && chmod 664 "${DB_FILE}"
-fi
-
-# Laravel optimizations
-log_info "Clearing optimizations..."
-
-php artisan optimize:clear || true
-
 log_info "Running migrations..."
-
 php artisan migrate --force
 
 log_info "Optimizing..."
-
 composer dump-autoload --optimize --no-interaction --quiet
 php artisan optimize || true
 
