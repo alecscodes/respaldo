@@ -1,4 +1,4 @@
-# Respaldo
+# 🔄 Respaldo
 
 A comprehensive backup management application built with Laravel & Vue.js. Manage multiple apps, track backups, and automate server backups with a secure CLI script—all from a clean, simple dashboard.
 
@@ -21,16 +21,6 @@ cd respaldo
 # Run deployment (handles both fresh installs and updates)
 ./deploy.sh
 ```
-
-**What the script does:**
-
-- **Environment Setup**: Creates `.env` from `.env.example` if missing
-- **Interactive Prompts**: Prompts for `APP_URL` and `BACKUP_VOLUME` only if missing (with sensible defaults)
-- **Git Updates**: Automatically pulls latest changes if in a git repository
-- **Dependencies**: Installs production dependencies (`composer install --no-dev`, `npm ci`)
-- **Build**: Compiles frontend assets (`npm run build`)
-- **Database**: Generates app key, creates SQLite database, and runs migrations
-- **Optimization**: Clears caches and optimizes the application for production
 
 **Usage:**
 
@@ -58,6 +48,16 @@ Then start the containers:
 ```bash
 docker-compose up -d
 ```
+
+**Updating via Artisan:**
+
+You can also use the Artisan command to perform updates:
+
+```bash
+php artisan git:update
+```
+
+This command will pull the latest changes and run all deployment steps (composer install, npm install, build, migrations, etc.).
 
 ### Local Development
 
