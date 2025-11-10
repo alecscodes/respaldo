@@ -49,16 +49,6 @@ Then start the containers:
 docker-compose up -d
 ```
 
-**Updating via Artisan:**
-
-You can also use the Artisan command to perform updates:
-
-```bash
-php artisan git:update
-```
-
-This command will pull the latest changes and run all deployment steps (composer install, npm install, build, migrations, etc.).
-
 ### Local Development
 
 ```bash
@@ -297,14 +287,24 @@ The application includes an automatic update system that allows you to update di
 
 **How it works:**
 
-- Navigate to **Settings → Updates** in the app
-- Check for available updates
-- Click **Update** to pull the latest changes from the Git repository
+- When updates are available, a notification appears on the **Dashboard**
+- The notification shows how many commits you're behind
+- Click **Update Now** to pull the latest changes from the Git repository
 - The system automatically:
   - Fetches latest changes from remote
   - Updates dependencies (Composer/NPM) if needed
   - Rebuilds frontend assets if needed
   - Clears caches
+
+**Updating via Artisan:**
+
+You can also use the Artisan command to perform updates:
+
+```bash
+php artisan git:update
+```
+
+This command will pull the latest changes and run all deployment steps (composer install, npm install, build, migrations, etc.).
 
 **Requirements:**
 
