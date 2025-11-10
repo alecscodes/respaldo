@@ -6,8 +6,11 @@ parameters:
         - app/
         - database/
 
-    # Level 10 is the highest level
+    # Level 5 provides good balance for Laravel projects
     level: 5
+
+    # Report unmatched ignored errors (useful for cleanup)
+    reportUnmatchedIgnoredErrors: true
 
     # Ignore common Laravel magic patterns (uncomment as needed)
     # ignoreErrors:
