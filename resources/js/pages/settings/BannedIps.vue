@@ -62,34 +62,6 @@ function formatDate(dateString: string): string {
                     description="View and manage IP addresses that have been automatically banned"
                 />
 
-                <Transition
-                    enter-active-class="transition ease-in-out"
-                    enter-from-class="opacity-0"
-                    leave-active-class="transition ease-in-out"
-                    leave-to-class="opacity-0"
-                >
-                    <div
-                        v-if="($page.props as any).flash?.success"
-                        class="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-200"
-                    >
-                        {{ ($page.props as any).flash.success }}
-                    </div>
-                </Transition>
-
-                <Transition
-                    enter-active-class="transition ease-in-out"
-                    enter-from-class="opacity-0"
-                    leave-active-class="transition ease-in-out"
-                    leave-to-class="opacity-0"
-                >
-                    <div
-                        v-if="($page.props as any).flash?.error"
-                        class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200"
-                    >
-                        {{ ($page.props as any).flash.error }}
-                    </div>
-                </Transition>
-
                 <Card v-if="bannedIps.length === 0">
                     <CardHeader>
                         <CardTitle class="flex items-center gap-2">

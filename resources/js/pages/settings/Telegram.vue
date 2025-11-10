@@ -8,7 +8,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { edit } from '@/routes/telegram';
 import { type BreadcrumbItem } from '@/types';
-import { Form, Head, router, usePage } from '@inertiajs/vue3';
+import { Form, Head, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 interface Props {
@@ -17,7 +17,6 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const page = usePage();
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
@@ -29,8 +28,6 @@ const breadcrumbItems: BreadcrumbItem[] = [
 const botToken = ref<string>(props.telegram_bot_token || '');
 const chatId = ref<string>(props.telegram_chat_id || '');
 const isTesting = ref(false);
-const testMessage = ref('');
-const testMessageType = ref<'success' | 'error' | null>(null);
 
 const canTest = computed(() => {
     return botToken.value.trim() !== '' && chatId.value.trim() !== '';
@@ -42,8 +39,6 @@ const sendTestMessage = (): void => {
     }
 
     isTesting.value = true;
-    testMessage.value = '';
-    testMessageType.value = null;
 
     router.post(
         '/settings/telegram/test',
@@ -53,24 +48,6 @@ const sendTestMessage = (): void => {
         },
         {
             preserveScroll: true,
-            onSuccess: () => {
-                const message = page.props.flash.message as string;
-                const success = page.props.flash.success;
-
-                if (message || success !== undefined) {
-                    testMessage.value =
-                        message ||
-                        (success
-                            ? 'Test message sent successfully!'
-                            : 'Failed to send test message.');
-                    testMessageType.value = success ? 'success' : 'error';
-                }
-            },
-            onError: (errors) => {
-                testMessage.value =
-                    errors.message || 'Failed to send test message.';
-                testMessageType.value = 'error';
-            },
             onFinish: () => {
                 isTesting.value = false;
             },
@@ -138,33 +115,15 @@ const sendTestMessage = (): void => {
                         </p>
                     </div>
 
-                    <div class="flex flex-col gap-4">
-                        <div class="flex items-center gap-4">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                :disabled="!canTest || isTesting || processing"
-                                @click="sendTestMessage"
-                            >
-                                {{ isTesting ? 'Sending...' : 'Test Message' }}
-                            </Button>
-
-                            <Transition
-                                enter-active-class="transition ease-in-out"
-                                enter-from-class="opacity-0"
-                                leave-active-class="transition ease-in-out"
-                                leave-to-class="opacity-0"
-                            >
-                                <p
-                                    v-show="recentlySuccessful"
-                                    class="text-sm text-neutral-600"
-                                >
-                                    Saved.
-                                </p>
-                            </Transition>
-
-                            <Button :disabled="processing">Save</Button>
-                        </div>
+                    <div class="flex items-center gap-4">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            :disabled="!canTest || isTesting || processing"
+                            @click="sendTestMessage"
+                        >
+                            {{ isTesting ? 'Sending...' : 'Test Message' }}
+                        </Button>
 
                         <Transition
                             enter-active-class="transition ease-in-out"
@@ -173,17 +132,14 @@ const sendTestMessage = (): void => {
                             leave-to-class="opacity-0"
                         >
                             <p
-                                v-show="testMessage"
-                                :class="{
-                                    'text-sm text-green-600':
-                                        testMessageType === 'success',
-                                    'text-sm text-red-600':
-                                        testMessageType === 'error',
-                                }"
+                                v-show="recentlySuccessful"
+                                class="text-sm text-neutral-600"
                             >
-                                {{ testMessage }}
+                                Saved.
                             </p>
                         </Transition>
+
+                        <Button :disabled="processing">Save</Button>
                     </div>
                 </Form>
             </div>

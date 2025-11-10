@@ -60,13 +60,10 @@ class TelegramController extends Controller
         if (! $success) {
             Setting::set('telegram_bot_token', $originalToken);
             Setting::set('telegram_chat_id', $originalChatId);
+
+            return back()->with('error', 'Failed to send test message. Please check your bot token and chat ID.');
         }
 
-        return back()->with([
-            'success' => $success,
-            'message' => $success
-                ? 'Test message sent successfully!'
-                : 'Failed to send test message. Please check your bot token and chat ID.',
-        ]);
+        return back()->with('success', 'Test message sent successfully!');
     }
 }
