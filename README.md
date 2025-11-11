@@ -5,6 +5,25 @@
 
 ---
 
+## 🎥 Deploy & Backup Demo
+
+<p align="center">
+  <a href="https://youtu.be/UoXWy0Al8JA" target="_blank">
+    <img
+      src="https://img.youtube.com/vi/UoXWy0Al8JA/maxresdefault.jpg"
+      alt="Respaldo Deploy & Backup Demo"
+      style="width:100%;max-width:900px;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"
+    >
+  </a>
+</p>
+
+<p align="center">
+  <em>Watch how to clone, configure, and deploy <b>Respaldo</b>, and manage backups with the secure CLI script.</em><br>
+  <a href="https://youtu.be/UoXWy0Al8JA" target="_blank">▶️ Watch on YouTube</a>
+</p>
+
+---
+
 ## 📋 Table of Contents
 
 - [Quick Start](#-quick-start)
@@ -21,7 +40,7 @@
 
 ## 🚀 Quick Start
 
-### 🚀 Deploy
+### 📦 Deploy
 
 ```bash
 git clone https://github.com/alecscodes/respaldo.git
