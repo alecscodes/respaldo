@@ -43,6 +43,31 @@ fi
 # Clean up backup files created by sed
 rm -f .env.bak
 
+# Determine deployment mode (Docker or normal)
+DEPLOY_MODE_FILE=".deploy-mode"
+if [ -f "$DEPLOY_MODE_FILE" ]; then
+    # App was deployed before, use stored preference
+    DEPLOY_MODE=$(cat "$DEPLOY_MODE_FILE")
+    log "Using stored deployment mode: $DEPLOY_MODE"
+else
+    # First time deployment, ask user
+    log "Choose deployment method:"
+    echo "1) Docker (recommended)"
+    echo "2) Normal (standard)"
+    read -p "Enter choice [1]: " choice
+    choice=${choice:-1}
+    
+    if [ "$choice" = "1" ] || [ "$choice" = "docker" ] || [ "$choice" = "Docker" ]; then
+        DEPLOY_MODE="docker"
+    else
+        DEPLOY_MODE="normal"
+    fi
+    
+    # Store preference for future runs
+    echo "$DEPLOY_MODE" > "$DEPLOY_MODE_FILE"
+    log "Deployment mode set to: $DEPLOY_MODE (saved for future runs)"
+fi
+
 # Git: Always match remote repository exactly (discard all local changes)
 if [ -d .git ]; then
     log "Resetting to match remote repository exactly..."
@@ -79,45 +104,89 @@ if [ -d .git ]; then
     log "Repository now matches remote exactly"
 fi
 
-# Install dependencies
-log "Installing Composer dependencies..."
-composer install --no-dev --optimize-autoloader --no-interaction
+if [ "$DEPLOY_MODE" = "docker" ]; then
+    # Docker deployment
+    log "Deploying with Docker..."
+    
+    # Check if docker-compose is available
+    if ! command -v docker-compose >/dev/null 2>&1 && ! command -v docker >/dev/null 2>&1; then
+        warn "Docker is not installed. Please install Docker first."
+        exit 1
+    fi
+    
+    # Use docker compose (newer) or docker-compose (older)
+    if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+        DOCKER_COMPOSE_CMD="docker compose"
+    elif command -v docker-compose >/dev/null 2>&1; then
+        DOCKER_COMPOSE_CMD="docker-compose"
+    else
+        warn "docker-compose not found. Please install Docker Compose."
+        exit 1
+    fi
+    
+    # Prompt for APP_PORT only if it's empty or default value
+    current_app_port=$(grep "^APP_PORT=" .env | cut -d '=' -f2- 2>/dev/null || echo "")
+    if [ -z "$current_app_port" ] || [ "$current_app_port" = "8000" ]; then
+        read -p "APP_PORT [8000]: " app_port
+        app_port=${app_port:-8000}
+        sed -i.bak "s|^APP_PORT=.*|APP_PORT=$app_port|" .env
+        log "APP_PORT set to: $app_port"
+        rm -f .env.bak
+    fi
+    
+    log "Building and starting Docker containers..."
+    $DOCKER_COMPOSE_CMD up -d --build --remove-orphans
+    
+    log "Docker deployment completed successfully! 🚀"
+    log "Containers are running in the background"
+else
+    # Normal deployment
+    log "Deploying with standard method..."
+    
+    # Install dependencies
+    log "Installing Composer dependencies..."
+    composer install --no-dev --optimize-autoloader --no-interaction
 
-# Generate key if missing
-if ! grep -q "^APP_KEY=base64:" .env; then
-    log "Generating application key..."
-    php artisan key:generate --force
+    # Generate key if missing
+    if ! grep -q "^APP_KEY=base64:" .env; then
+        log "Generating application key..."
+        php artisan key:generate --force
+    fi
+
+    # Create SQLite database if needed
+    if [ ! -f database/database.sqlite ]; then
+        log "Creating SQLite database..."
+        touch database/database.sqlite
+    fi
+
+    # Clear config cache
+    log "Clearing configuration cache..."
+    php artisan config:clear || true
+
+    # Run migrations
+    log "Running migrations..."
+    php artisan migrate --force
+
+    # Install NPM dependencies
+    log "Installing NPM dependencies..."
+    npm ci
+
+    # Build assets
+    log "Building assets..."
+    npm run build
+
+    # Clear and optimize
+    log "Clearing caches..."
+    php artisan optimize:clear
+
+    log "Optimizing application..."
+    php artisan optimize
+    composer dump-autoload --optimize --no-interaction
+
+    # Web server root check
+    log "Web server document root must be set to: $(pwd)/public"
+    warn "Ensure your web server (nginx/apache) points to the 'public' directory, not the project root."
+
+    log "Deployment completed successfully! 🚀"
 fi
-
-# Create SQLite database if needed
-if [ ! -f database/database.sqlite ]; then
-    log "Creating SQLite database..."
-    touch database/database.sqlite
-fi
-
-# Clear config cache
-log "Clearing configuration cache..."
-php artisan config:clear || true
-
-# Run migrations
-log "Running migrations..."
-php artisan migrate --force
-
-# Install NPM dependencies
-log "Installing NPM dependencies..."
-npm ci
-
-# Build assets
-log "Building assets..."
-npm run build
-
-# Clear and optimize
-log "Clearing caches..."
-php artisan optimize:clear
-
-log "Optimizing application..."
-php artisan optimize
-composer dump-autoload --optimize --no-interaction
-
-log "Deployment completed successfully! 🚀"
 

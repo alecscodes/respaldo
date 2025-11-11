@@ -21,17 +21,23 @@
 
 ## 🚀 Quick Start
 
-### 🐳 Docker (Recommended)
-
-The easiest way to get started with Respaldo:
+### 🚀 Deploy
 
 ```bash
 git clone https://github.com/alecscodes/respaldo.git
 cd respaldo
-cp .env.example .env
-# Set APP_URL in .env (required)
-docker-compose up -d
+./deploy.sh
 ```
+
+The `deploy.sh` script will:
+
+- Set up `.env` and prompt for `APP_URL`
+- Ask you to choose between **Docker** or **Standard** deployment (first time only)
+- Remember your choice for future deployments
+- Handle all setup automatically
+
+**Docker:** Uses `docker compose up -d --build --remove-orphans` (scheduler runs in container)  
+**Standard:** Manual setup with automatic configuration
 
 **Configure in `.env`:**
 
@@ -40,16 +46,6 @@ docker-compose up -d
 | `APP_URL` | ✅ Yes | - | Full URL of your application |
 | `APP_PORT` | ❌ No | `8000` | Application port |
 | `BACKUP_VOLUME` | ❌ No | `./backups` | Backup storage path |
-
-### 🏭 Production Deployment
-
-For production environments:
-
-```bash
-git clone https://github.com/alecscodes/respaldo.git
-cd respaldo
-./deploy.sh
-```
 
 > 💡 The script handles both fresh installs and updates. Safe to run multiple times.
 
