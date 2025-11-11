@@ -11,4 +11,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/apps/{app}/backups', [ApiController::class, 'backups']);
     Route::get('/apps/{app}/space-check', [ApiController::class, 'checkSpace']);
     Route::post('/apps/{app}/backups', [ApiController::class, 'createBackup']);
+    Route::get('/backups/{backup}/download', [ApiController::class, 'downloadBackup']);
 });

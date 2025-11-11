@@ -440,7 +440,7 @@ download_backup() {
     # Download the backup file
     curl -s -H "Authorization: Bearer $TOKEN" \
         -o "$filename" \
-        "$BASE_URL/backups/$backup_id/download"
+        "$BASE_URL/api/backups/$backup_id/download"
 
     if [ $? -eq 0 ] && [ -f "$filename" ]; then
         echo -e "${GREEN}Backup downloaded successfully to: $filename${NC}"

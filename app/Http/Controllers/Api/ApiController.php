@@ -14,6 +14,9 @@ use App\Services\TelegramNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ApiController extends Controller
 {
@@ -142,5 +145,13 @@ class ApiController extends Controller
             'size' => StorageConverter::bytesToGb($backup->size),
             'message' => 'Backup created successfully.',
         ], 201);
+    }
+
+    public function downloadBackup(Request $request, Backup $backup): BinaryFileResponse|StreamedResponse
+    {
+        abort_if($backup->user_id !== $request->user()->id, 403);
+        abort_unless(Storage::disk('backups')->exists($backup->file_path), 404, 'Backup file not found.');
+
+        return Storage::disk('backups')->download($backup->file_path, $backup->filename);
     }
 }
