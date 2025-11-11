@@ -5,6 +5,7 @@ import { Separator } from '@/components/ui/separator';
 import { toUrl, urlIsActive } from '@/lib/utils';
 import { edit as editAppearance } from '@/routes/appearance';
 import { edit as editProfile } from '@/routes/profile';
+import { edit as editRegistration } from '@/routes/registration';
 import { edit as editTelegram } from '@/routes/telegram';
 import { show } from '@/routes/two-factor';
 import { edit as editPassword } from '@/routes/user-password';
@@ -23,6 +24,10 @@ const sidebarNavItems: NavItem[] = [
     {
         title: 'Telegram',
         href: editTelegram(),
+    },
+    {
+        title: 'Registration',
+        href: editRegistration(),
     },
     {
         title: 'Password',
