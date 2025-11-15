@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\BlockBots;
 use App\Http\Middleware\CheckBannedIp;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -33,8 +34,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Remove ValidatePostSize middleware to allow unlimited uploads
         $middleware->remove(\Illuminate\Http\Middleware\ValidatePostSize::class);
 
-        // Override post size settings before any validation
+        // Block bots and crawlers first
         $middleware->web(prepend: [
+            BlockBots::class,
             \App\Http\Middleware\OverrideValidatePostSize::class,
             CheckBannedIp::class,
         ]);
@@ -48,6 +50,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->api(prepend: [
+            BlockBots::class,
             \App\Http\Middleware\OverrideValidatePostSize::class,
             CheckBannedIp::class,
         ]);
