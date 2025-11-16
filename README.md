@@ -8,18 +8,18 @@
 ## 🎥 Deploy & Backup Demo
 
 <p align="center">
-  <a href="https://youtu.be/UoXWy0Al8JA" target="_blank">
+  <a href="https://streamable.com/wesm7b" target="_blank">
     <img
-      src="https://img.youtube.com/vi/UoXWy0Al8JA/maxresdefault.jpg"
-      alt="Respaldo Deploy & Backup Demo"
-      style="width:100%;max-width:900px;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"
+      src="https://cdn-cf-east.streamable.com/image/wesm7b.jpg?Expires=1763553201102&Key-Pair-Id=APKAIEYUVEN4EVB2OKEQ&Signature=N4Ayt0brk9YuL4Yt7O8kAwEwGcx9~1MF03V4KodunD7~9XfLOOo2xdPKeVf-4ow3b3R~OjnZ1rMf11coKuW6WrO-MiPqWqBPoTGJvOKxFPZBjrfAWRLf71TRT~2mbl~bKNo43XXQG5UiLqWTrbbQOpZ6~vMV~ooZ~uBLS1socL41iYqPytbxKFTyFh9hMsahSCBeM4ZTTyO125QzVoiooUIeAa0JR1Nhj6THlFjqzGJpqNONiNeVZKWOv9QVBIllkiscVrZYCWI6NxmSjSqGMHE7RYSuWv0ASr0fz1dqfIHBAe-DcODbcNqEJ0rUcnD9qDTwGjO6QiNfvmTdeGuk4A__"
+      alt="Respaldo Deploy Demo"
+      style="width:100%;max-width:900px;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,0.15);cursor:pointer;"
     >
   </a>
 </p>
 
 <p align="center">
-  <em>Watch how to clone, configure, and deploy <b>Respaldo</b>, and manage backups with the secure CLI script.</em><br>
-  <a href="https://youtu.be/UoXWy0Al8JA" target="_blank">▶️ Watch on YouTube</a>
+  <em>Watch how to clone, configure, and deploy <b>Respaldo</b> in under 2 minutes.</em><br>
+  <a href="https://streamable.com/wesm7b" target="_blank">▶️ Watch on Streamable</a>
 </p>
 
 ---
