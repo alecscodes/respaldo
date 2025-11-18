@@ -1,22 +1,17 @@
 includes:
     - vendor/larastan/larastan/extension.neon
+    - vendor/nesbot/carbon/extension.neon
 
 parameters:
+
     paths:
         - app/
-        - database/
 
-    # Level 5 provides good balance for Laravel projects
+    # Level 10 is the highest level
     level: 5
 
-    # Report unmatched ignored errors (useful for cleanup)
-    reportUnmatchedIgnoredErrors: true
-
-    # Ignore common Laravel magic patterns (uncomment as needed)
-    # ignoreErrors:
-    #     - '#PHPDoc tag @var#'
-
-    # Exclude test files from analysis
-    excludePaths:
-        - ./*/*/FileToBeExcluded.php
-
+#    ignoreErrors:
+#        - '#PHPDoc tag @var#'
+#
+#    excludePaths:
+#        - ./*/*/FileToBeExcluded.php
