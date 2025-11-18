@@ -73,7 +73,7 @@ test('service detects real client IP from Cloudflare', function () {
     expect(DB::table('banned_ips')->where('ip', '198.51.100.1')->exists())->toBeFalse();
 });
 
-test('failed login event triggers IP ban after 2 attempts', function () {
+test('failed login event triggers IP ban after 2 attempts and returns 403', function () {
     $user = User::factory()->create();
 
     $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.100']);
@@ -85,28 +85,31 @@ test('failed login event triggers IP ban after 2 attempts', function () {
 
     expect(DB::table('banned_ips')->where('ip', '203.0.113.100')->exists())->toBeFalse();
 
-    $this->post(route('login.store'), [
+    $response = $this->post(route('login.store'), [
         'email' => $user->email,
         'password' => 'wrong-password',
     ]);
 
+    $response->assertForbidden();
     expect(DB::table('banned_ips')->where('ip', '203.0.113.100')->exists())->toBeTrue();
 });
 
-test('non-existent routes ban IPs on GET requests', function () {
+test('non-existent routes ban IPs on GET requests and return 403', function () {
     $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.50']);
 
     $response = $this->get('/wordpress');
 
+    $response->assertForbidden();
     expect(DB::table('banned_ips')->where('ip', '203.0.113.50')->exists())->toBeTrue();
     expect(DB::table('banned_ips')->where('reason', 'like', '%wordpress%')->exists())->toBeTrue();
 });
 
-test('non-existent routes ban IPs on POST requests', function () {
+test('non-existent routes ban IPs on POST requests and return 403', function () {
     $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.51']);
 
     $response = $this->post('/wordpress');
 
+    $response->assertForbidden();
     expect(DB::table('banned_ips')->where('ip', '203.0.113.51')->exists())->toBeTrue();
     expect(DB::table('banned_ips')->where('reason', 'like', '%wordpress%')->exists())->toBeTrue();
 });
@@ -246,24 +249,27 @@ test('asset paths do not trigger IP bans', function () {
     expect(DB::table('banned_ips')->where('ip', '203.0.113.60')->exists())->toBeFalse();
 });
 
-test('non-asset 404s still trigger IP bans', function () {
+test('non-asset 404s still trigger IP bans and return 403', function () {
     $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.61']);
 
-    $this->get('/wordpress');
+    $response = $this->get('/wordpress');
+    $response->assertForbidden();
     expect(DB::table('banned_ips')->where('ip', '203.0.113.61')->exists())->toBeTrue();
 });
 
-test('storage paths trigger IP bans when file does not exist', function () {
+test('storage paths trigger IP bans when file does not exist and return 403', function () {
     DB::table('banned_ips')->whereIn('ip', ['203.0.113.62', '203.0.113.63'])->delete();
     Cache::flush();
 
     $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.62']);
-    $this->get('/storage/config.php');
+    $response = $this->get('/storage/config.php');
+    $response->assertForbidden();
     expect(DB::table('banned_ips')->where('ip', '203.0.113.62')->exists())->toBeTrue();
 
     Cache::flush();
     $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.63']);
-    $this->get('/storage/secret.txt');
+    $response = $this->get('/storage/secret.txt');
+    $response->assertForbidden();
     expect(DB::table('banned_ips')->where('ip', '203.0.113.63')->exists())->toBeTrue();
 });
 

@@ -89,9 +89,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 $filePath = storage_path('app/public/'.ltrim(substr($path, 8), '/'));
                 if (! file_exists($filePath) && $service->shouldBanPath($path)) {
                     $service->ban($request, 'Non-existent storage file: '.$path);
+
+                    return response('Access denied', 403);
                 }
             } elseif ($e instanceof NotFoundHttpException && ! $request->route() && $service->shouldBanPath($path)) {
                 $service->ban($request, 'Non-existent route: '.$path);
+
+                return response('Access denied', 403);
             }
 
             return null;

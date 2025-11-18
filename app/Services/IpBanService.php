@@ -60,12 +60,12 @@ class IpBanService
         }
     }
 
-    public function recordFailedLogin(Request $request): void
+    public function recordFailedLogin(Request $request): bool
     {
         $allIps = $this->getAllRealClientIps($request);
 
         if (empty($allIps)) {
-            return;
+            return false;
         }
 
         $primaryIp = $allIps[0];
@@ -77,7 +77,11 @@ class IpBanService
         if ($count >= self::MAX_LOGIN_ATTEMPTS) {
             $this->ban($request, 'Failed login attempts');
             Cache::forget($key);
+
+            return true;
         }
+
+        return false;
     }
 
     public function unban(string $ip): bool

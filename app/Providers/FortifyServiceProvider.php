@@ -107,7 +107,11 @@ class FortifyServiceProvider extends ServiceProvider
     private function configureSecurity(): void
     {
         Event::listen(Failed::class, function () {
-            app(IpBanService::class)->recordFailedLogin(request());
+            $banned = app(IpBanService::class)->recordFailedLogin(request());
+
+            if ($banned) {
+                abort(403, 'Access denied');
+            }
         });
     }
 }
