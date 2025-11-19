@@ -72,8 +72,23 @@ fi
 if [ -d .git ]; then
     log "Resetting to match remote repository exactly..."
 
+    PROJECT_DIR=$(pwd)
+    
+    # Remove stale lock files
+    rm -f .git/index.lock .git/*.lock 2>/dev/null || true
+    
+    # Configure git safe directory
+    git config --global --add safe.directory "$PROJECT_DIR" 2>/dev/null || true
+
     # Get current branch name
     CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+
+    # Fix permissions before git reset (only needed in Docker mode where files are owned by www-data)
+    if [ "$DEPLOY_MODE" = "docker" ] && docker ps --format '{{.Names}}' | grep -q "^respaldo_app$"; then
+        log "Fixing file permissions before git reset..."
+        # Change ownership to host user so git commands on host can access files
+        docker exec respaldo_app chown -R "$(id -u):$(id -g)" /var/www 2>/dev/null || true
+    fi
 
     # Abort any ongoing merge/rebase/cherry-pick operations
     log "Aborting any ongoing git operations..."
@@ -92,9 +107,8 @@ if [ -d .git ]; then
         git reset --hard origin/main || warn "Failed to reset to origin/main"
     }
 
-    # Clean untracked files and directories (optional - uncomment if you want to remove untracked files too)
-    # log "Cleaning untracked files..."
-    # git clean -fd || true
+    log "Cleaning untracked files..."
+    git clean -fd || true
 
     # Verify we're on the correct branch and up to date
     log "Verifying repository state..."
@@ -124,7 +138,7 @@ if [ "$DEPLOY_MODE" = "docker" ]; then
         exit 1
     fi
     
-    # Prompt for APP_PORT only if it's empty or default value
+    # Prompt for APP_PORT if not set or is default
     current_app_port=$(grep "^APP_PORT=" .env | cut -d '=' -f2- 2>/dev/null || echo "")
     if [ -z "$current_app_port" ] || [ "$current_app_port" = "8000" ]; then
         read -p "APP_PORT [8000]: " app_port
@@ -182,6 +196,31 @@ else
     log "Optimizing application..."
     php artisan optimize
     composer dump-autoload --optimize --no-interaction
+
+    # Setup Laravel scheduler cron job
+    log "Setting up Laravel scheduler cron job..."
+    PROJECT_DIR=$(pwd)
+    PHP_PATH=$(which php 2>/dev/null || echo "php")
+    CRON_ENTRY="* * * * * cd $PROJECT_DIR && $PHP_PATH artisan schedule:run >> /dev/null 2>&1"
+    CRON_FILE=$(crontab -l 2>/dev/null || echo "")
+    CRON_SETUP_FAILED=false
+
+    if echo "$CRON_FILE" | grep -q "artisan schedule:run"; then
+        log "Laravel scheduler cron job already exists"
+    else
+        if (crontab -l 2>/dev/null || echo ""; echo "$CRON_ENTRY") | crontab - 2>/dev/null; then
+            log "Laravel scheduler cron job added successfully"
+        else
+            CRON_SETUP_FAILED=true
+            warn "Failed to set up Laravel scheduler cron job"
+        fi
+    fi
+
+    # Warn if cron setup failed
+    if [ "$CRON_SETUP_FAILED" = true ]; then
+        warn "Cron job setup failed. You must manually configure cron jobs or use a systemd service,"
+        warn "otherwise the scheduler will not run automatically."
+    fi
 
     # Web server root check
     log "Web server document root must be set to: $(pwd)/public"

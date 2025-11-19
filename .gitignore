@@ -27,4 +27,7 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+/.npm-cache
+/.npm-global
+/.composer-cache
 backups

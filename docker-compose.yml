@@ -2,13 +2,14 @@ services:
   app:
     build:
       context: .
-      args:
-        USER_ID: ${USER_ID:-82}
-        GROUP_ID: ${GROUP_ID:-82}
     container_name: respaldo_app
     restart: unless-stopped
+    entrypoint: ['/entrypoint.sh']
     volumes:
       - .:/var/www
+      - vendor:/var/www/vendor
+      - node_modules:/var/www/node_modules
+      - storage:/var/www/storage
       # Mount backup volume (configurable via BACKUP_VOLUME env, defaults to ./backups)
       - ${BACKUP_VOLUME:-./backups}:/var/www/backups
     healthcheck:
@@ -29,8 +30,11 @@ services:
     ports:
       - '${APP_PORT:-80}:80'
     volumes:
-      - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/nginx/nginx.conf:/etc/nginx/http.d/default.conf:ro
       - .:/var/www
+      - vendor:/var/www/vendor
+      - node_modules:/var/www/node_modules
+      - storage:/var/www/storage
     depends_on:
       - app
     networks:
@@ -39,20 +43,25 @@ services:
   scheduler:
     build:
       context: .
-      args:
-        USER_ID: ${USER_ID:-82}
-        GROUP_ID: ${GROUP_ID:-82}
     container_name: respaldo_scheduler
     restart: unless-stopped
     entrypoint: ['/scheduler-entrypoint.sh']
     volumes:
       - .:/var/www
+      - vendor:/var/www/vendor
+      - node_modules:/var/www/node_modules
+      - storage:/var/www/storage
       # Mount backup volume (configurable via BACKUP_VOLUME env, defaults to ./backups)
       - ${BACKUP_VOLUME:-./backups}:/var/www/backups
     depends_on:
       - app
     networks:
       - app-network
+
+volumes:
+  vendor:
+  node_modules:
+  storage:
 
 networks:
   app-network:

@@ -1,36 +1,37 @@
-# PHP-FPM application
-FROM php:8.4-fpm-alpine
+FROM php:8.4-fpm-alpine AS app
 
-ARG USER_ID=82
-ARG GROUP_ID=82
-ENV USER_ID=${USER_ID} GROUP_ID=${GROUP_ID}
+WORKDIR /var/www
 
+# Install dependencies
 RUN apk add --no-cache --virtual .build-deps \
-    $PHPIZE_DEPS \
-    linux-headers \
-    oniguruma-dev \
-    libzip-dev \
-    sqlite-dev \
+    $PHPIZE_DEPS linux-headers oniguruma-dev libzip-dev sqlite-dev freetype-dev harfbuzz \
     && apk add --no-cache \
-    oniguruma \
-    libzip \
-    sqlite \
-    unzip \
-    curl \
-    git \
-    nodejs \
-    npm \
+    oniguruma libzip sqlite unzip curl git nodejs npm nss freetype \
+    ca-certificates ttf-freefont gcompat chromium nginx netcat-openbsd \
     && docker-php-ext-install mbstring zip pdo pdo_sqlite sockets \
     && apk del .build-deps
 
-# Composer
+# Update npm globally
+RUN npm install -g npm@latest
+
+# Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-WORKDIR /var/www
+# Copy entrypoints
+COPY docker/entrypoint.sh docker/scheduler-entrypoint.sh docker/web-entrypoint.sh /
+RUN chmod +x /entrypoint.sh /scheduler-entrypoint.sh /web-entrypoint.sh   
+
+# Copy dependency files first
+COPY composer.json composer.lock ./
+COPY package*.json ./
+
+# Install PHP dependencies
+RUN composer install --no-scripts --no-dev --prefer-dist --no-progress --optimize-autoloader
+
+# Install NPM dependencies
+RUN npm ci --prefer-offline --no-audit
+
+# Copy the full project
 COPY . .
 
-COPY docker/entrypoint.sh docker/scheduler-entrypoint.sh docker/web-entrypoint.sh /
-RUN chmod +x /entrypoint.sh /scheduler-entrypoint.sh /web-entrypoint.sh
-
-ENTRYPOINT ["/entrypoint.sh"]
-
+CMD ["php-fpm"]

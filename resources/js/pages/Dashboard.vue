@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import DownloadScriptButton from '@/components/DownloadScriptButton.vue';
-import UpdateNotification from '@/components/UpdateNotification.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { dashboard } from '@/routes';
 import { type BreadcrumbItem } from '@/types';
@@ -114,8 +113,6 @@ onClickOutside(instructionsRef, () => {
         <div
             class="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4"
         >
-            <UpdateNotification />
-
             <div class="grid auto-rows-min gap-4 md:grid-cols-3">
                 <!-- Backup Storage Card -->
                 <div

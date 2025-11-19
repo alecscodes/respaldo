@@ -6,24 +6,6 @@ use Illuminate\Support\Facades\Process;
 
 class GitUpdateService
 {
-    protected const array COMPOSER_FILES = ['composer.json', 'composer.lock'];
-
-    protected const array NPM_FILES = ['package.json', 'package-lock.json'];
-
-    protected const array FRONTEND_FILES = [
-        'resources/js/',
-        'resources/css/',
-        'vite.config.ts',
-        'vite.config.js',
-        'tsconfig.json',
-        'tailwind.config.js',
-        'tailwind.config.ts',
-        'postcss.config.js',
-        'postcss.config.ts',
-        'eslint.config.js',
-        'eslint.config.ts',
-    ];
-
     /**
      * Check if updates are available from the remote repository.
      *
@@ -122,8 +104,18 @@ class GitUpdateService
         try {
             $workingDir = base_path();
 
-            // Use deploy.sh for non-Docker deployments
-            // For Docker, use manual process (git reset --hard) since deploy.sh does git pull
+            // Check if there are commits available before updating
+            $updateCheck = $this->checkForUpdates();
+            if (! $updateCheck['available']) {
+                $result['success'] = true;
+                $result['message'] = 'No updates available: local branch is up to date with remote.';
+                $result['output'] = 'No commits to pull from origin.';
+
+                return $result;
+            }
+
+            // Non-Docker: call deploy.sh
+            // Docker: reset git and run deployment steps
             if ($this->isRunningInDocker()) {
                 return $this->runDockerUpdate($workingDir);
             }
@@ -138,7 +130,7 @@ class GitUpdateService
     }
 
     /**
-     * Run Docker update process (git reset + full deployment steps).
+     * Run Docker update process: reset git to match remote exactly, then run deployment.
      *
      * @return array{success: bool, message: string, output: string|null, error: string|null}
      */
@@ -155,8 +147,8 @@ class GitUpdateService
             $this->configureGitSafeDirectory($workingDir);
 
             $branch = $this->getCurrentBranch($workingDir);
-            $oldCommitHash = $this->getCurrentCommit($workingDir);
 
+            // Fetch latest from remote
             $fetch = Process::path($workingDir)->run('git fetch origin');
             if (! $fetch->successful()) {
                 $result['error'] = 'Failed to fetch from remote: '.$fetch->errorOutput();
@@ -165,8 +157,10 @@ class GitUpdateService
                 return $result;
             }
 
-            $this->ensureGitPermissions($workingDir);
+            // Fix permissions before git reset (files might be owned by www-data)
+            Process::path($workingDir)->run('sh -c "chown -R root:root . 2>/dev/null || true"');
 
+            // Reset hard to remote branch (discards ALL local changes)
             $reset = Process::path($workingDir)->run("git reset --hard origin/{$branch}");
             if (! $reset->successful()) {
                 $result['error'] = 'Failed to reset to remote: '.$reset->errorOutput();
@@ -175,15 +169,16 @@ class GitUpdateService
                 return $result;
             }
 
+            // Clean untracked files
             Process::path($workingDir)->run('git clean -fd');
 
-            $result['output'] = trim($reset->output());
+            $result['output'] = "Git reset to origin/{$branch}\n";
 
-            $changedFiles = $this->getChangedFiles($oldCommitHash);
-            $this->fixPermissions($changedFiles);
+            // Fix permissions after git reset
+            $this->fixPermissionsAfterGitReset($workingDir);
 
-            // Always run full deployment steps (like deploy.sh)
-            $this->runFullDeployment($workingDir, $result);
+            // Run deployment steps
+            $this->runDeploymentSteps($workingDir, $result);
 
             $result['success'] = true;
             $result['message'] = 'Update completed successfully';
@@ -196,178 +191,96 @@ class GitUpdateService
     }
 
     /**
-     * Run full deployment steps (composer, npm, build, migrations, optimize).
+     * Run deployment steps: composer, npm, build, migrate, optimize.
      *
      * @param  array<string, mixed>  $result
      */
-    protected function runFullDeployment(string $workingDir, array &$result): void
+    protected function runDeploymentSteps(string $workingDir, array &$result): void
     {
         // Install Composer dependencies
-        $this->runComposerInstall($workingDir, $result);
+        $composer = Process::path($workingDir)->run('sh -c "composer install --no-dev --optimize-autoloader --no-interaction --no-scripts"');
+        if ($composer->successful()) {
+            $result['output'] .= "\n=== Composer Install ===\n".$composer->output();
+        } else {
+            $result['output'] .= "\n=== Composer Install Failed ===\n".$composer->errorOutput();
+        }
 
         // Install NPM dependencies
         if (file_exists($workingDir.'/package.json')) {
-            $this->runNpmInstall($workingDir, $result);
+            $npmInstall = Process::path($workingDir)->run('sh -c "npm ci"');
+            if ($npmInstall->successful()) {
+                $result['output'] .= "\n=== NPM Install ===\n".$npmInstall->output();
+            } else {
+                $result['output'] .= "\n=== NPM Install Failed ===\n".$npmInstall->errorOutput();
+            }
+
+            // Generate Wayfinder types before building
+            $this->generateWayfinderTypes($workingDir, $result);
+
+            // Build assets
+            $npmBuild = Process::path($workingDir)->run('sh -c "npm run build"');
+            if ($npmBuild->successful()) {
+                $result['output'] .= "\n=== NPM Build ===\n".$npmBuild->output();
+            } else {
+                $result['output'] .= "\n=== NPM Build Failed ===\n".$npmBuild->errorOutput();
+            }
         }
 
-        // Build assets
-        if (file_exists($workingDir.'/package.json')) {
-            $this->runNpmBuild($workingDir, $result);
-        }
+        // Restart queue worker to prevent database locks during migrations
+        Process::path($workingDir)->run('sh -c "php artisan queue:restart"');
+        sleep(2);
 
         // Run migrations
-        $migrate = Process::path($workingDir)->run('php artisan migrate --force');
+        $migrate = Process::path($workingDir)->run('sh -c "php artisan migrate --force"');
         if ($migrate->successful()) {
-            $result['output'] .= "\n\n=== Migrations ===\n".$migrate->output();
+            $result['output'] .= "\n=== Migrations ===\n".$migrate->output();
         } else {
-            $result['output'] .= "\n\n=== Migrations Failed ===\n".$migrate->errorOutput();
+            $result['output'] .= "\n=== Migrations Failed ===\n".$migrate->errorOutput();
         }
 
-        // Clear and optimize
+        // Clear caches
         $this->clearCaches();
 
-        $optimize = Process::path($workingDir)->run('php artisan optimize');
+        // Optimize
+        $optimize = Process::path($workingDir)->run('sh -c "php artisan optimize"');
         if ($optimize->successful()) {
-            $result['output'] .= "\n\n=== Optimize ===\n".$optimize->output();
+            $result['output'] .= "\n=== Optimize ===\n".$optimize->output();
         }
 
-        $dumpAutoload = Process::path($workingDir)->run('composer dump-autoload --optimize --no-interaction');
+        // Dump autoload
+        $dumpAutoload = Process::path($workingDir)->run('sh -c "composer dump-autoload --optimize --no-interaction"');
         if ($dumpAutoload->successful()) {
-            $result['output'] .= "\n\n=== Autoload Dump ===\n".$dumpAutoload->output();
+            $result['output'] .= "\n=== Autoload Dump ===\n".$dumpAutoload->output();
         }
+
+        // Fix permissions after optimize
+        $this->fixPermissionsAfterGitReset($workingDir);
     }
 
     /**
-     * Handle dependency updates based on changed files.
+     * Generate Wayfinder types before building assets.
      *
      * @param  array<string, mixed>  $result
      */
-    protected function handleDependencyUpdates(string $workingDir, array $changedFiles, array &$result): void
+    protected function generateWayfinderTypes(string $workingDir, array &$result): void
     {
-        $composerChanged = $this->filesChanged($changedFiles, self::COMPOSER_FILES);
-        $npmChanged = $this->filesChanged($changedFiles, self::NPM_FILES);
-        $frontendChanged = $this->filesChanged($changedFiles, self::FRONTEND_FILES);
-
-        if ($composerChanged && file_exists(base_path('composer.json'))) {
-            $this->runComposerInstall($workingDir, $result);
-        }
-
-        if ($npmChanged && file_exists(base_path('package.json'))) {
-            $this->runNpmInstall($workingDir, $result);
-        }
-
-        if (($frontendChanged || $npmChanged) && file_exists(base_path('package.json'))) {
-            $this->runNpmBuild($workingDir, $result);
-        }
-    }
-
-    /**
-     * Run composer install.
-     *
-     * @param  array<string, mixed>  $result
-     */
-    protected function runComposerInstall(string $workingDir, array &$result): void
-    {
-        $composer = Process::path($workingDir)->run('composer install --no-dev --optimize-autoloader --no-interaction --no-scripts');
-
-        if ($composer->successful()) {
-            $result['output'] .= "\n\n=== Composer Install ===\n".$composer->output();
-        } else {
-            $result['output'] .= "\n\n=== Composer Install Failed ===\n".$composer->errorOutput();
-        }
-    }
-
-    /**
-     * Run npm install.
-     *
-     * @param  array<string, mixed>  $result
-     */
-    protected function runNpmInstall(string $workingDir, array &$result): void
-    {
-        $npmInstall = Process::path($workingDir)->run('npm ci');
-
-        if ($npmInstall->successful()) {
-            $result['output'] .= "\n\n=== NPM Install ===\n".$npmInstall->output();
-        } else {
-            $result['output'] .= "\n\n=== NPM Install Failed ===\n".$npmInstall->errorOutput();
-        }
-    }
-
-    /**
-     * Run npm build.
-     *
-     * @param  array<string, mixed>  $result
-     */
-    protected function runNpmBuild(string $workingDir, array &$result): void
-    {
-        $npmBuild = Process::path($workingDir)->run('npm run build');
-
-        if ($npmBuild->successful()) {
-            $result['output'] .= "\n\n=== NPM Build ===\n".$npmBuild->output();
-        } else {
-            $result['output'] .= "\n\n=== NPM Build Failed ===\n".$npmBuild->errorOutput();
-        }
-    }
-
-    /**
-     * Get current commit hash.
-     */
-    protected function getCurrentCommit(string $workingDir): ?string
-    {
-        $commit = Process::path($workingDir)->run('git rev-parse HEAD');
-
-        return $commit->successful() ? trim($commit->output()) : null;
-    }
-
-    /**
-     * Get list of changed files between two commits.
-     *
-     * @return array<string>
-     */
-    protected function getChangedFiles(?string $oldCommitHash): array
-    {
-        if ($oldCommitHash === null) {
-            return [];
-        }
-
         try {
-            $workingDir = base_path();
-            $diff = Process::path($workingDir)->run("git diff --name-only {$oldCommitHash} HEAD");
-            if ($diff->successful()) {
-                $output = trim($diff->output());
+            // Clear config cache first
+            Process::path($workingDir)->run('sh -c "php artisan config:clear"');
 
-                return $output ? explode("\n", $output) : [];
+            // Generate wayfinder types
+            $wayfinder = Process::path($workingDir)
+                ->timeout(60)
+                ->run('sh -c "php artisan wayfinder:generate --with-form"');
+
+            if ($wayfinder->successful()) {
+                $result['output'] .= "\n=== Wayfinder Types Generated ===\n".$wayfinder->output();
+            } else {
+                $result['output'] .= "\n=== Wayfinder Warning ===\n".$wayfinder->errorOutput();
             }
         } catch (\Exception $e) {
-            // Silently fail and return empty array
+            // Silently fail - build will attempt to generate types itself
         }
-
-        return [];
-    }
-
-    /**
-     * Check if any of the specified files/patterns were changed.
-     *
-     * @param  array<string>  $changedFiles
-     * @param  array<string>  $patterns
-     */
-    protected function filesChanged(array $changedFiles, array $patterns): bool
-    {
-        foreach ($changedFiles as $file) {
-            foreach ($patterns as $pattern) {
-                // Check exact match
-                if ($file === $pattern) {
-                    return true;
-                }
-
-                // Check if file path starts with pattern (for directories)
-                if (str_starts_with($file, $pattern)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -402,6 +315,33 @@ class GitUpdateService
     }
 
     /**
+     * Fix permissions after git reset (git reset creates files as root, Laravel needs www-data).
+     */
+    protected function fixPermissionsAfterGitReset(string $workingDir): void
+    {
+        if (! $this->isRunningInDocker()) {
+            return; // Only needed in Docker
+        }
+
+        try {
+            // Fix database directory and file permissions
+            Process::path($workingDir)->run('sh -c "chown -R www-data:www-data database 2>/dev/null || true"');
+            Process::path($workingDir)->run('sh -c "chmod 775 database 2>/dev/null || true"');
+            Process::path($workingDir)->run('sh -c "[ -f database/database.sqlite ] && chmod 664 database/database.sqlite 2>/dev/null || true"');
+
+            // Fix storage and bootstrap/cache permissions
+            Process::path($workingDir)->run('sh -c "chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true"');
+            Process::path($workingDir)->run('sh -c "chmod -R 775 storage bootstrap/cache 2>/dev/null || true"');
+
+            // Fix build directory permissions
+            Process::path($workingDir)->run('sh -c "[ -d public/build ] && chown -R www-data:www-data public/build 2>/dev/null || true"');
+            Process::path($workingDir)->run('sh -c "[ -d public/build ] && chmod -R 755 public/build 2>/dev/null || true"');
+        } catch (\Exception $e) {
+            // Silently fail
+        }
+    }
+
+    /**
      * Clear Laravel caches after update.
      */
     protected function clearCaches(): void
@@ -411,54 +351,8 @@ class GitUpdateService
             $commands = ['config:clear', 'route:clear', 'view:clear', 'cache:clear'];
 
             foreach ($commands as $command) {
-                Process::path($workingDir)->run("php artisan {$command}");
+                Process::path($workingDir)->run("sh -c \"php artisan {$command}\"");
             }
-        } catch (\Exception $e) {
-            // Silently fail
-        }
-    }
-
-    /**
-     * Ensure Git has proper permissions to modify files.
-     */
-    protected function ensureGitPermissions(string $workingDir): void
-    {
-        try {
-            $uid = posix_getuid();
-            $gid = posix_getgid();
-
-            $chownResult = Process::run("chown -R {$uid}:{$gid} {$workingDir} 2>&1");
-
-            if (! $chownResult->successful()) {
-                Process::run("chown -R {$uid}:{$gid} {$workingDir}/.git 2>/dev/null || true");
-                Process::run("chown {$uid}:{$gid} {$workingDir} 2>/dev/null || true");
-            }
-        } catch (\Exception $e) {
-            // Silently fail
-        }
-    }
-
-    /**
-     * Fix file permissions after git operations.
-     *
-     * @param  array<string>  $changedFiles
-     */
-    protected function fixPermissions(array $changedFiles): void
-    {
-        try {
-            $workingDir = base_path();
-            $uid = posix_getuid();
-            $gid = posix_getgid();
-
-            foreach ($changedFiles as $file) {
-                $fullPath = $workingDir.'/'.$file;
-                if (file_exists($fullPath)) {
-                    @chown($fullPath, $uid);
-                    @chgrp($fullPath, $gid);
-                }
-            }
-
-            Process::run("chown -R {$uid}:{$gid} {$workingDir}/.git 2>/dev/null || true");
         } catch (\Exception $e) {
             // Silently fail
         }
@@ -505,8 +399,6 @@ class GitUpdateService
         @chmod($deployScript, 0755);
 
         // Run deploy.sh script
-        // Note: deploy.sh will prompt for APP_URL if missing, which is expected behavior
-        // In production, APP_URL should already be set, so it won't prompt
         $deploy = Process::path($workingDir)
             ->timeout(600) // 10 minute timeout for deployment
             ->run('bash deploy.sh');
