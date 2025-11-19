@@ -8,7 +8,7 @@ const downloadScript = () => {
 </script>
 
 <template>
-    <Button @click="downloadScript" class="w-full sm:w-auto">
+    <Button @click="downloadScript" class="w-full">
         <Download class="mr-2 h-4 w-4 flex-shrink-0" />
         <span class="truncate">Download Script</span>
     </Button>
