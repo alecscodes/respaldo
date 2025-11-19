@@ -20,6 +20,7 @@ set_permissions() {
 
 # Ensure required directories exist
 mkdir -p storage/framework/{cache,sessions,views,testing} storage/app/{private,public} storage/logs bootstrap/cache public/build
+mkdir -p /var/www/backups
 
 # Set permissions for writable directories
 set_permissions storage
@@ -57,6 +58,9 @@ set_permissions bootstrap/cache
 # Ensure .gitignore remains writable after optimize (git needs it for deployments)
 [ -f bootstrap/cache/.gitignore ] && chown www-data:www-data bootstrap/cache/.gitignore 2>/dev/null || true
 [ -f bootstrap/cache/.gitignore ] && chmod 664 bootstrap/cache/.gitignore 2>/dev/null || true
+
+# Ensure backups directory is writable (important for mounted volumes)
+set_permissions /var/www/backups
 
 # Puppeteer
 php artisan puppeteer:install --quiet || true
