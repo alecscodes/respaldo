@@ -1,11 +1,10 @@
 # 🔄 Respaldo
 
-> **Backup management application** built with Laravel & Vue.js  
+> **Backup management application** built with Laravel & Vue  
 > Manage multiple apps, track backups, and automate server backups with a secure CLI script.
-
 ---
 
-## 🎥 Deploy & Backup Demo
+## 🎥 Deploy Demo
 
 <p align="center">
   <a href="https://streamable.com/wesm7b" target="_blank">
@@ -27,12 +26,22 @@
 ## 📋 Table of Contents
 
 - [Quick Start](#-quick-start)
+  - [Deploy](#-deploy)
 - [Features](#-features)
-- [Tech Stack](#-tech-stack)
-- [Configuration](#️-configuration)
 - [Usage](#-usage)
-- [Development](#-development)
+- [Configuration](#️-configuration)
+  - [Telegram Notifications](#-telegram-notifications)
+  - [Registration Control](#-registration-control)
+  - [IP Banning](#-ip-banning)
+  - [Backup Volume Configuration](#-backup-volume-configuration)
+  - [CLI Script Usage](#-cli-script-usage)
+  - [Automatic Updates](#-automatic-updates)
 - [Artisan Commands](#-artisan-commands)
+- [Tech Stack](#-tech-stack)
+- [Development](#-development)
+  - [Running Tests](#running-tests)
+  - [Code Quality](#code-quality)
+  - [Frontend Development](#frontend-development)
 - [License](#-license)
 - [Support](#-support)
 
@@ -52,39 +61,7 @@ The `deploy.sh` script will:
 
 - Set up `.env` and prompt for `APP_URL`
 - Ask you to choose between **Docker** or **Standard** deployment (first time only)
-- Remember your choice for future deployments
-- Handle all setup automatically
-
-**Docker:** Uses `docker compose up -d --build --remove-orphans` (scheduler runs in container)  
-**Standard:** Manual setup with automatic configuration
-
-**Configure in `.env`:**
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `APP_URL` | ✅ Yes | - | Full URL of your application |
-| `APP_PORT` | ❌ No | `8000` | Application port |
-| `BACKUP_VOLUME` | ❌ No | `./backups` | Backup storage path |
-
-> 💡 The script handles both fresh installs and updates. Safe to run multiple times.
-
-### 💻 Local Development
-
-For local development without Docker:
-
-```bash
-git clone https://github.com/alecscodes/respaldo.git
-cd respaldo
-composer install && npm install
-cp .env.example .env
-php artisan key:generate
-touch database/database.sqlite && php artisan migrate
-npm run build && composer run dev
-```
-
-Visit `http://localhost:8000` to access the application.
-
----
+- Remember your choice for future deployments (automatically updates if already installed)
 
 ## ✨ Features
 
@@ -92,29 +69,45 @@ Visit `http://localhost:8000` to access the application.
 - 📦 **Backup tracking** - view, download, and manage backups for each app
 - 🖥️ **CLI script** - download a secure, personalized CLI script for automated server backups
 - 💾 **Storage management** - monitor usage with visual indicators and enforce limits
-- 🚫 **Gitignore support** - CLI script respects `.gitignore` and `.respaldoignore` files
+- 🚫 **Ignore file support** - CLI script respects `.respaldoignore` (takes precedence) or `.gitignore` files
 - ✅ **Space validation** - double-check storage availability before backups
 - 📢 **Telegram notifications** for instant alerts on backup failures and storage issues
 - 🔐 **Two-factor authentication** for enhanced security
 - 🌙 **Dark mode** for comfortable monitoring
 - 📱 **Mobile-first responsive design** - manage backups from anywhere
-- 🔄 **Auto-updates** - update directly from the web interface
+- 🔄 **Automatic updates** - updates run automatically every minute via scheduler
 
 ---
 
-## 🛠 Tech Stack
+## 📖 Usage
 
-| Category | Technologies |
-|----------|-------------|
-| **Backend** | Laravel 12 · PHP 8.4+ |
-| **Frontend** | Vue 3 · Inertia.js v2 · Tailwind CSS v4 |
-| **Database** | SQLite (MySQL/PostgreSQL supported) |
-| **Testing** | Pest PHP v4 |
-| **Deploy** | Docker & Docker Compose |
+Getting started with backups:
+
+1. Navigate to **Apps → Create App**
+2. Enter your app name and storage limit (GB)
+3. Download the CLI script from **Script → Download**
+4. Use the script to create backups interactively or via cron
+
+**Managing backups:**
+
+- **View:** Click any app to see backup history
+- **Download:** Click download button on any backup
+- **Delete:** Remove old backups to free up space
 
 ---
 
 ## ⚙️ Configuration
+
+### 📱 Telegram Notifications
+
+Set up Telegram notifications to receive instant alerts:
+
+1. Create a bot via [@BotFather](https://t.me/BotFather) on Telegram
+2. Get your bot token and chat ID
+3. Navigate to **Settings → Telegram** in the dashboard
+4. Enter your bot credentials
+
+> 📌 Only error notifications are sent for backup failures, storage issues, and disk space warnings.
 
 ### 👥 Registration Control
 
@@ -122,9 +115,46 @@ Visit `http://localhost:8000` to access the application.
 - Registration is **automatically disabled** after the first user is created
 - Manual control available via **Settings → Registration**
 
+### 🚫 IP Banning
+
+Respaldo automatically bans IPs for suspicious activity:
+
+**Automatic bans triggered by:**
+
+- 2 failed login attempts
+- Accessing non-existent routes (e.g., `/wp-admin`)
+- Automatically detects and bans related IPs (client, forwarded, proxy, server)
+
+**Unban commands:**
+
+```bash
+# Unban a specific IP
+php artisan ip:unban 192.168.1.100
+
+# Unban all IPs
+php artisan ip:unban --all
+```
+
+### 💾 Backup Volume Configuration
+
+The `BACKUP_VOLUME` environment variable controls where backups and the database are stored:
+
+- **When `BACKUP_VOLUME` is set:** Backups and SQLite database are stored in the specified directory
+- **When `BACKUP_VOLUME` is not set:** Backups go to `./backups`, database to `database/database.sqlite`
+
+This allows you to keep all application data (backups + database) in a single location, which is especially useful when using external storage or network-attached storage.
+
+**Configure in `.env`:**
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `APP_URL` | ✅ Yes | - | Full URL of your application |
+| `APP_PORT` | ❌ No | `8000` | Application port (Docker only) |
+| `BACKUP_VOLUME` | ❌ No | `./backups` | Backup storage path (when set, SQLite database is also stored here) |
+
 ### 📢 CLI Script Usage
 
-1. **Download the script** from the dashboard at `/script/download`
+1. **Download the script** from the dashboard or directly from `/script/download`
 
    > ⚠️ **Important:** Ensure `APP_URL` is set correctly in `.env` before downloading—it's embedded in the script.
 
@@ -141,7 +171,7 @@ Visit `http://localhost:8000` to access the application.
    **Interactive menu options:**
    - List apps
    - Create new app
-   - Create backup (respects `.gitignore`/`.respaldoignore`)
+   - Create backup (respects `.respaldoignore` or `.gitignore`)
    - Download backup
 
    **Quick backup mode** (for cron jobs):
@@ -168,7 +198,7 @@ Visit `http://localhost:8000` to access the application.
    sudo chmod +x /usr/local/bin/respaldo
    ```
 
-### ⏰ Automated Backups with Cron
+**Automated Backups with Cron:**
 
 **Prerequisites:**
 
@@ -183,9 +213,9 @@ crontab -e
 0 2 * * * /usr/local/bin/respaldo /path/to/your/project >> /var/log/respaldo.log 2>&1
 ```
 
-### 📁 Ignore Files
+**Ignore Files:**
 
-The script supports `.respaldoignore` (takes precedence) or `.gitignore`:
+The script uses `.respaldoignore` if it exists (ignoring `.gitignore`), otherwise falls back to `.gitignore` if present.
 
 ```bash
 # .respaldoignore example
@@ -198,40 +228,16 @@ temp/
 
 Patterns work the same as `.gitignore`.
 
-### 📢 Telegram Notifications
+### 🔄 Automatic Updates
 
-Set up Telegram notifications to receive instant alerts:
+Respaldo automatically checks for and applies updates every minute via the Laravel scheduler:
 
-1. Create a bot via [@BotFather](https://t.me/BotFather) on Telegram
-2. Get your bot token and chat ID
-3. Navigate to **Settings → Telegram** in the dashboard
-4. Enter your bot credentials
+- **Autonomous updates**: The application checks for new commits from the Git repository every minute
+- **Smart skipping**: Updates are skipped if no new commits are available
+- **Docker support**: Commands run correctly in Docker environments via shell execution
+- **Update process**: Automatically pulls changes, installs dependencies, builds assets, runs migrations, and optimizes cache
 
-> 📌 Only error notifications are sent (no success spam).
-
-### 🔒 IP Banning
-
-Respaldo automatically bans IPs for suspicious activity:
-
-**Automatic bans triggered by:**
-
-- 2 failed login attempts
-- Accessing non-existent routes (e.g., `/wp-admin`)
-- Detects and bans related IPs (client, forwarded, proxy, server)
-
-**Unban commands:**
-
-```bash
-# Unban a specific IP
-php artisan ip:unban 192.168.1.100
-
-# Unban all IPs
-php artisan ip:unban --all
-```
-
-### 🔄 Updates
-
-Update Respaldo directly from the dashboard notification or via command line:
+You can also manually trigger an update:
 
 ```bash
 php artisan git:update
@@ -241,24 +247,48 @@ php artisan git:update
 
 ---
 
-## 📖 Usage
+## 🔧 Artisan Commands
 
-Getting started with backups is simple:
+Respaldo includes several helpful Artisan commands:
 
-1. Navigate to **Apps → Create App**
-2. Enter your app name and storage limit (GB)
-3. Download the CLI script from **Script → Download**
-4. Use the script to create backups interactively or via cron
+| Command | Description |
+|---------|-------------|
+| `php artisan git:update` | Manually trigger application update from Git repository (runs automatically every minute) |
+| `php artisan ip:unban <ip>` | Unban a specific IP address |
+| `php artisan ip:unban --all` | Unban all banned IP addresses |
 
-**Managing backups:**
+---
 
-- **View:** Click any app to see backup history
-- **Download:** Click download button on any backup
-- **Delete:** Remove old backups to free up space
+## 🛠 Tech Stack
+
+| Category | Technology |
+|----------|-----------|
+| **Backend** | Laravel 12 · PHP 8.4+ |
+| **Frontend** | Vue 3 · Inertia v2 · Tailwind CSS v4 |
+| **Database** | SQLite (MySQL/PostgreSQL supported) |
+| **Deployment** | Docker · Standard Hosting |
+| **Testing** | Pest PHP v4 |
+| **Code Quality** | Larastan (PHPStan) · Laravel Pint · ESLint · Prettier |
 
 ---
 
 ## 🧪 Development
+
+For local development:
+
+```bash
+git clone https://github.com/alecscodes/respaldo.git
+cd respaldo
+composer install && npm install
+cp .env.example .env
+php artisan key:generate
+touch database/database.sqlite && php artisan migrate
+npm run build && composer run dev
+```
+
+Visit `http://localhost:8000` to access the application.
+
+---
 
 ### Running Tests
 
@@ -271,6 +301,9 @@ php artisan test          # Run all tests
 ```bash
 vendor/bin/pint           # Format code with Laravel Pint
 composer run analyze      # Run static analysis (PHPStan)
+npm run lint              # Lint and fix JavaScript/TypeScript/Vue code (ESLint)
+npm run format            # Format frontend code (Prettier)
+npm run format:check      # Check frontend code formatting (Prettier)
 ```
 
 ### Frontend Development
@@ -279,18 +312,6 @@ composer run analyze      # Run static analysis (PHPStan)
 npm run dev              # Start Vite dev server with hot reload
 npm run build            # Build for production
 ```
-
----
-
-## 🔧 Artisan Commands
-
-Respaldo includes several helpful Artisan commands:
-
-| Command | Description |
-|---------|-------------|
-| `php artisan git:update` | Update the application from Git repository |
-| `php artisan ip:unban <ip>` | Unban a specific IP address |
-| `php artisan ip:unban --all` | Unban all banned IP addresses |
 
 ---
 
