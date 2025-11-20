@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\BuildDetectionService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -42,6 +43,7 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
+            'commit' => app(BuildDetectionService::class)->getShortCommit(),
             'auth' => [
                 'user' => $request->user(),
             ],
