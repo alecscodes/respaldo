@@ -319,26 +319,42 @@ class GitUpdateService
      */
     protected function fixPermissionsAfterGitReset(string $workingDir): void
     {
+        // Run only in Docker
         if (! $this->isRunningInDocker()) {
-            return; // Only needed in Docker
+            return;
         }
 
         try {
-            // Fix database directory and file permissions
-            Process::path($workingDir)->run('sh -c "chown -R www-data:www-data database 2>/dev/null || true"');
-            Process::path($workingDir)->run('sh -c "chmod 775 database 2>/dev/null || true"');
-            Process::path($workingDir)->run('sh -c "[ -f database/database.sqlite ] && chmod 664 database/database.sqlite 2>/dev/null || true"');
+            Process::path($workingDir)->run('sh -c "php artisan config:clear 2>/dev/null || true"');
 
-            // Fix storage and bootstrap/cache permissions
-            Process::path($workingDir)->run('sh -c "chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true"');
-            Process::path($workingDir)->run('sh -c "chmod -R 775 storage bootstrap/cache 2>/dev/null || true"');
+            // Fix database locations (Docker mount point and default)
+            $this->fixPermissions('/var/www/backups', '775');
+            $this->fixPermissions($workingDir.'/database', '775');
 
-            // Fix build directory permissions
-            Process::path($workingDir)->run('sh -c "[ -d public/build ] && chown -R www-data:www-data public/build 2>/dev/null || true"');
-            Process::path($workingDir)->run('sh -c "[ -d public/build ] && chmod -R 755 public/build 2>/dev/null || true"');
+            // Fix database files if they exist
+            foreach (['/var/www/backups/database.sqlite', $workingDir.'/database/database.sqlite'] as $dbPath) {
+                if (file_exists($dbPath)) {
+                    $this->fixPermissions($dbPath, '664');
+                }
+            }
+
+            // Fix Laravel directories
+            foreach (['database', 'storage', 'bootstrap/cache'] as $dir) {
+                $this->fixPermissions($workingDir.'/'.$dir, '775');
+            }
+            $this->fixPermissions($workingDir.'/public/build', '755');
         } catch (\Exception $e) {
             // Silently fail
         }
+    }
+
+    /**
+     * Fix ownership and permissions for a path.
+     */
+    protected function fixPermissions(string $path, string $mode): void
+    {
+        $escaped = escapeshellarg($path);
+        Process::run("sh -c \"[ -e {$escaped} ] && chown -R www-data:www-data {$escaped} && chmod -R {$mode} {$escaped} 2>/dev/null || true\"");
     }
 
     /**
