@@ -34,9 +34,11 @@ return [
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),
-            'database' => env('BACKUP_VOLUME')
-                ? rtrim(env('BACKUP_VOLUME'), '/').'/database.sqlite'
-                : env('DB_DATABASE', database_path('database.sqlite')),
+            'database' => match (true) {
+                env('APP_ENV') === 'testing' => env('DB_DATABASE', database_path('database.sqlite')),
+                (bool) env('BACKUP_VOLUME') => rtrim(env('BACKUP_VOLUME'), '/').'/database.sqlite',
+                default => env('DB_DATABASE', database_path('database.sqlite')),
+            },
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
             'busy_timeout' => null,
