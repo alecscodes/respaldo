@@ -11,7 +11,12 @@ class BuildDetectionService
      */
     public function getCurrentCommit(): ?string
     {
-        $commit = Process::path(base_path())->run('git rev-parse HEAD');
+        $workingDir = base_path();
+
+        // Configure git safe directory for Docker environments
+        Process::path($workingDir)->run('git config --global --add safe.directory '.escapeshellarg($workingDir));
+
+        $commit = Process::path($workingDir)->run('git rev-parse HEAD');
 
         return $commit->successful() ? trim($commit->output()) : null;
     }
