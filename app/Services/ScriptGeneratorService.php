@@ -11,7 +11,7 @@ class ScriptGeneratorService
         $token = $user->createToken('respaldo-cli')->plainTextToken;
 
         $script = <<<'BASH'
-#!/bin/bash
+#!/bin/sh
 
 # Respaldo Backup CLI Script
 # Generated automatically - do not modify manually
@@ -48,6 +48,7 @@ TOKEN="{{TOKEN}}"
 CONFIG_DIR="$HOME/.respaldo"
 CONFIG_FILE="$CONFIG_DIR/config"
 APPS_MAP_FILE="$CONFIG_DIR/apps_map"
+USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
 
 # Colors for output
 RED='\033[0;31m'
@@ -152,7 +153,7 @@ remove_hardcoded_credentials() {
 
 # Check authentication
 check_auth() {
-    response=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/apps")
+    response=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $TOKEN" -H "User-Agent: $USER_AGENT" "$BASE_URL/api/apps")
     http_code=$(echo "$response" | tail -n1)
 
     # Extract body (everything except last line which is http_code)
@@ -196,7 +197,7 @@ check_auth() {
 
 # List apps
 list_apps() {
-    response=$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/apps")
+    response=$(curl -s -H "Authorization: Bearer $TOKEN" -H "User-Agent: $USER_AGENT" "$BASE_URL/api/apps")
     apps=$(echo "$response" | grep -o '"id":[0-9]*,"name":"[^"]*"' | sed 's/"id":\([0-9]*\),"name":"\([^"]*\)"/\1) \2/')
     if [ -z "$apps" ]; then
         echo "No apps found"
@@ -212,6 +213,7 @@ create_app() {
 
     response=$(curl -s -X POST -H "Authorization: Bearer $TOKEN" \
         -H "Content-Type: application/json" \
+        -H "User-Agent: $USER_AGENT" \
         -d "{\"name\":\"$app_name\",\"storage_size\":$storage_gb}" \
         "$BASE_URL/api/apps")
 
@@ -279,20 +281,25 @@ create_backup() {
         # Convert ignore patterns to tar exclude format
         while IFS= read -r line; do
             # Skip comments and empty lines
-            [[ "$line" =~ ^#.*$ ]] && continue
-            [[ -z "$line" ]] && continue
+            case "$line" in
+                \#*) continue ;;
+                "") continue ;;
+            esac
             echo "$line" >> "$exclude_file"
         done < "$ignore_file"
     fi
 
     # Create backup file - macOS compatible
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS mktemp doesn't support --suffix
-        backup_file=$(mktemp)
-        backup_file="${backup_file}.tar.gz"
-    else
-        backup_file=$(mktemp --suffix=.tar.gz)
-    fi
+    case "$(uname -s)" in
+        Darwin*)
+            # macOS mktemp doesn't support --suffix
+            backup_file=$(mktemp)
+            backup_file="${backup_file}.tar.gz"
+            ;;
+        *)
+            backup_file=$(mktemp --suffix=.tar.gz)
+            ;;
+    esac
 
     echo -e "${YELLOW}Creating backup...${NC}"
 
@@ -310,11 +317,14 @@ create_backup() {
     fi
 
     # Get file size - macOS compatible
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        file_size=$(stat -f%z "$backup_file" 2>/dev/null)
-    else
-        file_size=$(stat -c%s "$backup_file" 2>/dev/null)
-    fi
+    case "$(uname -s)" in
+        Darwin*)
+            file_size=$(stat -f%z "$backup_file" 2>/dev/null)
+            ;;
+        *)
+            file_size=$(stat -c%s "$backup_file" 2>/dev/null)
+            ;;
+    esac
 
     if [ -z "$file_size" ] || [ "$file_size" = "0" ]; then
         echo -e "${RED}Error: Backup file is empty${NC}"
@@ -324,7 +334,7 @@ create_backup() {
 
     # Check available space via API
     echo -e "${YELLOW}Checking available space...${NC}"
-    space_check=$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/apps/$app_id/space-check?size=$file_size")
+    space_check=$(curl -s -H "Authorization: Bearer $TOKEN" -H "User-Agent: $USER_AGENT" "$BASE_URL/api/apps/$app_id/space-check?size=$file_size")
 
     if echo "$space_check" | grep -q '"available":false'; then
         echo -e "${RED}Error: Not enough space available${NC}"
@@ -333,10 +343,12 @@ create_backup() {
     fi
 
     # Upload backup
-    echo -e "${YELLOW}Uploading backup (size: $(echo "scale=2; $file_size/1024/1024" | bc)MB)...${NC}"
+    size_mb=$(awk "BEGIN {printf \"%.2f\", $file_size/1024/1024}")
+    echo -e "${YELLOW}Uploading backup (size: ${size_mb}MB)...${NC}"
 
     response=$(curl -s -w "\n%{http_code}" -X POST \
         -H "Authorization: Bearer $TOKEN" \
+        -H "User-Agent: $USER_AGENT" \
         -F "file=@$backup_file;type=application/gzip" \
         "$BASE_URL/api/apps/$app_id/backups")
 
@@ -373,7 +385,7 @@ list_backups() {
         return 1
     fi
 
-    response=$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/apps/$app_id/backups")
+    response=$(curl -s -H "Authorization: Bearer $TOKEN" -H "User-Agent: $USER_AGENT" "$BASE_URL/api/apps/$app_id/backups")
 
     # Check if response has backups
     if ! echo "$response" | grep -q '"id"'; then
@@ -401,13 +413,16 @@ list_backups() {
             # Extract date and time part (remove microseconds and timezone)
             date_part=$(echo "$created_at" | sed 's/\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\)T\([0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}\)[^"]*/\1 \2/')
 
-            if [[ "$OSTYPE" == "darwin"* ]]; then
-                # macOS date formatting
-                formatted_date=$(date -j -f "%Y-%m-%d %H:%M:%S" "$date_part" "+%Y-%m-%d %H:%M" 2>/dev/null || echo "$date_part")
-            else
-                # Linux date formatting
-                formatted_date=$(date -d "$date_part" "+%Y-%m-%d %H:%M" 2>/dev/null || echo "$date_part")
-            fi
+            case "$(uname -s)" in
+                Darwin*)
+                    # macOS date formatting
+                    formatted_date=$(date -j -f "%Y-%m-%d %H:%M:%S" "$date_part" "+%Y-%m-%d %H:%M" 2>/dev/null || echo "$date_part")
+                    ;;
+                *)
+                    # Linux date formatting
+                    formatted_date=$(date -d "$date_part" "+%Y-%m-%d %H:%M" 2>/dev/null || echo "$date_part")
+                    ;;
+            esac
         else
             formatted_date="N/A"
         fi
@@ -439,6 +454,7 @@ download_backup() {
 
     # Download the backup file
     curl -s -H "Authorization: Bearer $TOKEN" \
+        -H "User-Agent: $USER_AGENT" \
         -o "$filename" \
         "$BASE_URL/api/backups/$backup_id/download"
 
@@ -532,14 +548,15 @@ main() {
                     echo -e "${GREEN}Found saved app (ID: $saved_app_id) for current directory${NC}"
                     echo ""
                     read -p "Use saved app? (y/n): " use_saved
-                    if [[ "$use_saved" =~ ^[Yy]$ ]]; then
-                        app_id=$saved_app_id
-                    else
-                        echo -e "${YELLOW}Your apps:${NC}"
-                        list_apps
-                        echo ""
-                        read -p "Enter app ID: " app_id
-                    fi
+                    case "$use_saved" in
+                        [Yy]*) app_id=$saved_app_id ;;
+                        *)
+                            echo -e "${YELLOW}Your apps:${NC}"
+                            list_apps
+                            echo ""
+                            read -p "Enter app ID: " app_id
+                            ;;
+                    esac
                 else
                     echo -e "${YELLOW}Your apps:${NC}"
                     list_apps
