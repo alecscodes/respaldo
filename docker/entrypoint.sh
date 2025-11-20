@@ -62,7 +62,4 @@ set_permissions bootstrap/cache
 # Ensure backups directory is writable (important for mounted volumes)
 set_permissions /var/www/backups
 
-# Puppeteer
-php artisan puppeteer:install --quiet || true
-
 exec php-fpm
