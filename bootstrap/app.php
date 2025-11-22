@@ -14,13 +14,6 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
-// Set PHP configuration for unlimited file uploads
-@ini_set('upload_max_filesize', '-1');
-@ini_set('post_max_size', '-1');
-@ini_set('memory_limit', '-1');
-@ini_set('max_execution_time', '0');
-@ini_set('max_input_time', '0');
-
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
@@ -37,12 +30,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // Block bots and crawlers first
         $middleware->web(prepend: [
             BlockBots::class,
-            \App\Http\Middleware\OverrideValidatePostSize::class,
+            \App\Http\Middleware\AllowLargeUploads::class,
             CheckBannedIp::class,
         ]);
 
         $middleware->web(append: [
-            \App\Http\Middleware\AllowLargeUploads::class,
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
@@ -51,12 +43,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->api(prepend: [
             BlockBots::class,
-            \App\Http\Middleware\OverrideValidatePostSize::class,
-            CheckBannedIp::class,
-        ]);
-
-        $middleware->api(append: [
             \App\Http\Middleware\AllowLargeUploads::class,
+            CheckBannedIp::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
