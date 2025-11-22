@@ -179,10 +179,15 @@ const actionSheetButtons = computed(() => {
                 >
                     <CardHeader>
                         <div class="flex items-start justify-between gap-2">
-                            <div class="flex-1">
-                                <CardTitle class="text-lg">{{
-                                    app.name
-                                }}</CardTitle>
+                            <div class="min-w-0 flex-1">
+                                <Link
+                                    :href="`/apps/${app.id}`"
+                                    class="block transition-colors hover:text-primary"
+                                >
+                                    <CardTitle class="text-lg">{{
+                                        app.name
+                                    }}</CardTitle>
+                                </Link>
                                 <CardDescription
                                     >Created
                                     {{
@@ -198,7 +203,7 @@ const actionSheetButtons = computed(() => {
                                     variant="ghost"
                                     size="icon"
                                     class="h-8 w-8"
-                                    @click="openActionSheet(app)"
+                                    @click.stop="openActionSheet(app)"
                                 >
                                     <MoreVertical class="h-4 w-4" />
                                 </Button>
