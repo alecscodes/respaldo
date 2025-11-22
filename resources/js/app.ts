@@ -1,6 +1,6 @@
 import '../css/app.css';
 
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import type { DefineComponent } from 'vue';
 import { createApp, h } from 'vue';
@@ -21,8 +21,14 @@ createInertiaApp({
             .mount(el);
     },
     progress: {
-        color: '#4B5563',
+        color: getComputedStyle(document.documentElement)
+            .getPropertyValue('--progress-default')
+            .trim(),
     },
+});
+
+router.on('finish', () => {
+    document.documentElement.removeAttribute('data-uploading');
 });
 
 // This will set light / dark mode on page load...

@@ -154,7 +154,25 @@ const handleDrop = (event: DragEvent) => {
     }
 };
 
+const handleUpload = () => {
+    document.documentElement.setAttribute('data-uploading', '');
+    uploadForm.post(
+        `/apps/${props.app.id}/backups`,
+        {
+            preserveScroll: true,
+            onSuccess: handleUploadSuccess,
+            onError: () => {
+                document.documentElement.removeAttribute('data-uploading');
+            },
+            onCancel: () => {
+                document.documentElement.removeAttribute('data-uploading');
+            },
+        },
+    );
+};
+
 const handleUploadSuccess = () => {
+    document.documentElement.removeAttribute('data-uploading');
     uploadFile.value = null;
     uploadForm.file = null;
     uploadForm.reset('file');
@@ -381,15 +399,7 @@ const actionSheetButtons = computed(() => [
                     </CardHeader>
                     <CardContent class="space-y-4">
                         <form
-                            @submit.prevent="
-                                uploadForm.post(
-                                    `/apps/${props.app.id}/backups`,
-                                    {
-                                        preserveScroll: true,
-                                        onSuccess: handleUploadSuccess,
-                                    },
-                                )
-                            "
+                            @submit.prevent="handleUpload"
                             class="space-y-4"
                         >
                             <div class="space-y-2">

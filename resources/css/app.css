@@ -124,6 +124,9 @@
     --sidebar-border: hsl(0 0% 91%);
     --sidebar-ring: hsl(217.2 91.2% 59.8%);
     --sidebar: hsl(0 0% 98%);
+
+    --progress-default: hsl(0 0% 29%);
+    --progress-upload: hsl(142 76% 36%);
 }
 
 .dark {
@@ -160,6 +163,9 @@
     --sidebar-border: hsl(0 0% 15.9%);
     --sidebar-ring: hsl(217.2 91.2% 59.8%);
     --sidebar: hsl(240 5.9% 10%);
+
+    --progress-default: hsl(0 0% 29%);
+    --progress-upload: hsl(142 76% 36%);
 }
 
 @layer base {
@@ -169,4 +175,12 @@
     body {
         @apply bg-background text-foreground;
     }
+}
+
+#nprogress .bar {
+    background: var(--progress-default) !important;
+}
+
+html[data-uploading] #nprogress .bar {
+    background: var(--progress-upload) !important;
 }
