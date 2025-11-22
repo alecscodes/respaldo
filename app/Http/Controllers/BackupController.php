@@ -65,10 +65,11 @@ class BackupController extends Controller
         }
 
         try {
+            $backupData = $this->backupService->createBackup($app, $file);
             $backup = Backup::create([
                 'app_id' => $app->id,
-                'filename' => $file->getClientOriginalName(),
-                'file_path' => $this->backupService->createBackup($app, $file, auth()->id()),
+                'filename' => $backupData['filename'],
+                'file_path' => $backupData['file_path'],
                 'size' => $fileSize,
                 'user_id' => auth()->id(),
             ]);

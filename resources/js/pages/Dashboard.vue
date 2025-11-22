@@ -455,37 +455,29 @@ onClickOutside(instructionsRef, () => {
 
                     <div v-else class="space-y-3">
                         <div
-                            class="grid grid-cols-12 gap-4 border-b border-sidebar-border/50 pb-2 text-xs font-medium text-sidebar-foreground/70"
+                            class="grid grid-cols-3 gap-4 border-b border-sidebar-border/50 pb-2 text-xs font-medium text-sidebar-foreground/70"
                         >
-                            <div class="col-span-5">Filename</div>
-                            <div class="col-span-2">App</div>
-                            <div class="col-span-2">Size</div>
-                            <div class="col-span-3">Created At</div>
+                            <div>App</div>
+                            <div>Size</div>
+                            <div>Created At</div>
                         </div>
                         <div
                             v-for="backup in props.latestBackups"
                             :key="backup.id"
-                            class="grid grid-cols-12 gap-4 border-b border-sidebar-border/50 py-2 text-sm"
+                            class="grid grid-cols-3 gap-4 border-b border-sidebar-border/50 py-2 text-sm"
                         >
-                            <div
-                                class="col-span-5 truncate font-medium text-sidebar-foreground"
-                            >
-                                {{ backup.filename }}
-                            </div>
-                            <div class="col-span-2">
+                            <div>
                                 <Link
                                     :href="`/apps/${backup.app.id}`"
-                                    class="text-sidebar-foreground/70 hover:text-sidebar-foreground hover:underline"
+                                    class="font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:underline"
                                 >
                                     {{ backup.app.name }}
                                 </Link>
                             </div>
-                            <div class="col-span-2 text-sidebar-foreground/70">
+                            <div class="text-sidebar-foreground/70">
                                 {{ formatGb(backup.size) }}
                             </div>
-                            <div
-                                class="col-span-3 text-xs text-sidebar-foreground/50"
-                            >
+                            <div class="text-xs text-sidebar-foreground/50">
                                 {{ formatDate(backup.created_at) }}
                             </div>
                         </div>

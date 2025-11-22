@@ -51,24 +51,22 @@ const deleteBackup = (backupId: number) => {
 
     <div v-else class="space-y-2">
         <div
-            class="grid grid-cols-12 gap-4 border-b pb-2 text-sm font-medium text-muted-foreground"
+            class="grid grid-cols-3 gap-4 border-b pb-2 text-sm font-medium text-muted-foreground"
         >
-            <div class="col-span-5">Filename</div>
-            <div class="col-span-2">Size</div>
-            <div class="col-span-3">Created At</div>
-            <div class="col-span-2 text-right">Actions</div>
+            <div>Size</div>
+            <div>Created At</div>
+            <div class="text-right">Actions</div>
         </div>
         <div
             v-for="backup in props.backups"
             :key="backup.id"
-            class="grid grid-cols-12 gap-4 border-b py-3 text-sm"
+            class="grid grid-cols-3 gap-4 border-b py-3 text-sm"
         >
-            <div class="col-span-5 font-medium">{{ backup.filename }}</div>
-            <div class="col-span-2">{{ formatGb(backup.size) }}</div>
-            <div class="col-span-3 text-muted-foreground">
+            <div>{{ formatGb(backup.size) }}</div>
+            <div class="text-muted-foreground">
                 {{ formatDate(backup.created_at) }}
             </div>
-            <div class="col-span-2 flex justify-end gap-2">
+            <div class="flex justify-end gap-2">
                 <Button
                     variant="ghost"
                     size="icon"

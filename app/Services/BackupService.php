@@ -14,7 +14,10 @@ class BackupService
         protected TelegramNotificationService $telegramService
     ) {}
 
-    public function createBackup(App $app, UploadedFile $file, int $userId): string
+    /**
+     * @return array{file_path: string, filename: string}
+     */
+    public function createBackup(App $app, UploadedFile $file): array
     {
         // Check disk space before attempting backup
         $diskSpace = $this->diskSpaceService->getBackupDiskSpace();
@@ -39,11 +42,13 @@ class BackupService
         }
 
         try {
-            $extension = $file->getClientOriginalExtension();
-            $filename = Str::uuid().($extension ? '.'.$extension : '');
+            $filename = $this->generateBackupFilename($app, $file);
             Storage::disk('backups')->putFileAs("{$app->id}", $file, $filename);
 
-            return "{$app->id}/{$filename}";
+            return [
+                'file_path' => "{$app->id}/{$filename}",
+                'filename' => $filename,
+            ];
         } catch (\Exception $e) {
             $this->telegramService->sendBackupFailureNotification(
                 $app,
@@ -52,6 +57,23 @@ class BackupService
 
             throw $e;
         }
+    }
+
+    /**
+     * Generate a backup filename using best practices: app-name-YYYY-MM-DD-HH-mm-ss.tar.gz
+     */
+    protected function generateBackupFilename(App $app, UploadedFile $file): string
+    {
+        $appSlug = Str::slug($app->name);
+        $datetime = now()->format('Y-m-d-H-i-s');
+
+        // Determine file extension - prefer .tar.gz, fallback to original extension
+        $originalName = strtolower($file->getClientOriginalName());
+        $extension = str_ends_with($originalName, '.tar.gz')
+            ? 'tar.gz'
+            : ($file->getClientOriginalExtension() ?: 'tar.gz');
+
+        return "{$appSlug}-{$datetime}.{$extension}";
     }
 
     public function deleteBackup(string $filePath): bool
