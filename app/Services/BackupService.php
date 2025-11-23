@@ -11,7 +11,8 @@ class BackupService
 {
     public function __construct(
         protected DiskSpaceService $diskSpaceService,
-        protected TelegramNotificationService $telegramService
+        protected TelegramNotificationService $telegramService,
+        protected BackupRetentionService $retentionService
     ) {}
 
     /**
@@ -33,12 +34,28 @@ class BackupService
 
         // Check if we have enough space on the actual disk
         if ($diskSpace['available'] < $file->getSize()) {
-            $this->telegramService->sendBackupFailureNotification(
-                $app,
-                'Insufficient disk space on server. Available: '.round($diskSpace['available'] / 1024 / 1024 / 1024, 2).' GB, Required: '.round($file->getSize() / 1024 / 1024 / 1024, 2).' GB'
-            );
+            // Try to free space by running retention cleanup for this specific app first
+            $this->retentionService->applyRetentionForApp($app);
 
-            throw new \RuntimeException('Insufficient disk space on server');
+            // Recheck disk space after cleanup
+            $diskSpace = $this->diskSpaceService->getBackupDiskSpace();
+
+            // If still insufficient, try cleaning all apps
+            if ($diskSpace['available'] < $file->getSize()) {
+                $this->retentionService->applyRetentionForAllApps();
+
+                // Recheck disk space after cleanup
+                $diskSpace = $this->diskSpaceService->getBackupDiskSpace();
+
+                if ($diskSpace['available'] < $file->getSize()) {
+                    $this->telegramService->sendBackupFailureNotification(
+                        $app,
+                        'Insufficient disk space on server. Available: '.round($diskSpace['available'] / 1024 / 1024 / 1024, 2).' GB, Required: '.round($file->getSize() / 1024 / 1024 / 1024, 2).' GB'
+                    );
+
+                    throw new \RuntimeException('Insufficient disk space on server');
+                }
+            }
         }
 
         try {

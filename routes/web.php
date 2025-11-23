@@ -23,6 +23,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('apps', AppController::class);
     Route::get('apps/{app}/backups', [BackupController::class, 'index'])->name('apps.backups');
     Route::post('apps/{app}/backups', [BackupController::class, 'store'])->name('backups.store');
+    Route::post('apps/{app}/apply-retention', [AppController::class, 'applyRetention'])->name('apps.apply-retention');
     Route::get('backups/{backup}/download', [BackupController::class, 'download'])->name('backups.download');
     Route::delete('backups/{backup}', [BackupController::class, 'destroy'])->name('backups.destroy');
     Route::get('script/download', [ScriptController::class, 'download'])->name('script.download');

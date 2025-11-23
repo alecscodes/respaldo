@@ -26,6 +26,7 @@ import {
     ArrowLeft,
     MoreVertical,
     Pencil,
+    Trash,
     Trash2,
     Upload,
 } from 'lucide-vue-next';
@@ -39,6 +40,8 @@ interface App {
     available_space: number;
     backup_period?: string | null;
     backup_days?: string[] | null;
+    retention_days?: number | null;
+    retention_count?: number | null;
 }
 
 interface Backup {
@@ -181,6 +184,21 @@ const handleUploadSuccess = () => {
         fileInput.value = '';
     }
     router.reload({ only: ['backups', 'app'] });
+};
+
+const applyRetentionForm = useForm({});
+
+const handleApplyRetention = () => {
+    if (!confirm('Apply retention policy and delete old backups?')) {
+        return;
+    }
+
+    applyRetentionForm.post(`/apps/${props.app.id}/apply-retention`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            router.reload({ only: ['backups', 'app'] });
+        },
+    });
 };
 
 const actionSheetButtons = computed(() => [
@@ -360,7 +378,9 @@ const actionSheetButtons = computed(() => [
 
             <Card>
                 <CardHeader>
-                    <div class="flex items-center justify-between">
+                    <div
+                        class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
+                    >
                         <div>
                             <CardTitle>Backups</CardTitle>
                             <CardDescription
@@ -368,10 +388,29 @@ const actionSheetButtons = computed(() => [
                                 backups</CardDescription
                             >
                         </div>
-                        <Button @click="showUploadDialog = true">
-                            <Upload class="mr-2 h-4 w-4" />
-                            Upload Backup
-                        </Button>
+                        <div class="flex flex-col gap-2 sm:flex-row">
+                            <Button
+                                v-if="app.retention_days || app.retention_count"
+                                variant="outline"
+                                @click="handleApplyRetention"
+                                :disabled="applyRetentionForm.processing"
+                                class="w-full sm:w-auto"
+                            >
+                                <Trash class="mr-2 h-4 w-4" />
+                                {{
+                                    applyRetentionForm.processing
+                                        ? 'Cleaning...'
+                                        : 'Apply Retention'
+                                }}
+                            </Button>
+                            <Button
+                                @click="showUploadDialog = true"
+                                class="w-full sm:w-auto"
+                            >
+                                <Upload class="mr-2 h-4 w-4" />
+                                Upload Backup
+                            </Button>
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>

@@ -7,6 +7,7 @@ use App\Http\Requests\StoreAppRequest;
 use App\Http\Requests\StoreBackupRequest;
 use App\Models\App;
 use App\Models\Backup;
+use App\Services\BackupRetentionService;
 use App\Services\BackupService;
 use App\Services\IpBanService;
 use App\Services\StorageConverter;
@@ -23,7 +24,8 @@ class ApiController extends Controller
     public function __construct(
         protected BackupService $backupService,
         protected IpBanService $ipBanService,
-        protected TelegramNotificationService $telegramService
+        protected TelegramNotificationService $telegramService,
+        protected BackupRetentionService $retentionService
     ) {}
 
     public function login(Request $request): JsonResponse
@@ -113,13 +115,19 @@ class ApiController extends Controller
         $fileSize = $file->getSize();
 
         if (! $app->canBackup($fileSize)) {
-            $this->telegramService->sendStorageInsufficientNotification(
-                $app,
-                $fileSize,
-                $app->availableSpace()
-            );
+            // Try to free space by running retention cleanup for this app
+            $this->retentionService->applyRetentionForApp($app);
+            $app->refresh();
 
-            abort(400, 'Not enough storage space available.');
+            if (! $app->canBackup($fileSize)) {
+                $this->telegramService->sendStorageInsufficientNotification(
+                    $app,
+                    $fileSize,
+                    $app->availableSpace()
+                );
+
+                abort(400, 'Not enough storage space available.');
+            }
         }
 
         try {

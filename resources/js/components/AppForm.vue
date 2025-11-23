@@ -15,6 +15,8 @@ interface Props {
         storage_size: number;
         backup_period?: string | null;
         backup_days?: string[] | null;
+        retention_days?: number | null;
+        retention_count?: number | null;
     };
 }
 
@@ -29,6 +31,8 @@ const form = useForm({
     storage_size: props.app?.storage_size || 0,
     backup_period: props.app?.backup_period || null,
     backup_days: props.app?.backup_days || [],
+    retention_days: props.app?.retention_days || null,
+    retention_count: props.app?.retention_count || null,
 });
 
 const isWeekly = computed(() => form.backup_period === 'weekly');
@@ -152,6 +156,54 @@ const submit = () => {
             <p class="text-xs text-muted-foreground">
                 Select which days of the week to create backups
             </p>
+        </div>
+
+        <div class="space-y-4 border-t pt-4">
+            <h3 class="text-sm font-semibold">Backup Retention</h3>
+            <p class="text-xs text-muted-foreground">
+                Configure how long to keep backups. Leave empty to keep all
+                backups.
+            </p>
+
+            <div class="grid gap-4 md:grid-cols-2">
+                <div class="space-y-2">
+                    <Label for="retention_days">Retention Days</Label>
+                    <Input
+                        id="retention_days"
+                        :model-value="form.retention_days ?? undefined"
+                        @update:model-value="
+                            form.retention_days = $event ? Number($event) : null
+                        "
+                        type="number"
+                        min="1"
+                        placeholder="e.g., 30"
+                    />
+                    <InputError :message="form.errors.retention_days" />
+                    <p class="text-xs text-muted-foreground">
+                        Keep backups for this many days
+                    </p>
+                </div>
+
+                <div class="space-y-2">
+                    <Label for="retention_count">Retention Count</Label>
+                    <Input
+                        id="retention_count"
+                        :model-value="form.retention_count ?? undefined"
+                        @update:model-value="
+                            form.retention_count = $event
+                                ? Number($event)
+                                : null
+                        "
+                        type="number"
+                        min="1"
+                        placeholder="e.g., 10"
+                    />
+                    <InputError :message="form.errors.retention_count" />
+                    <p class="text-xs text-muted-foreground">
+                        Keep at least this many backups
+                    </p>
+                </div>
+            </div>
         </div>
 
         <div class="flex justify-end gap-2">

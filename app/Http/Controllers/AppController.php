@@ -6,6 +6,7 @@ use App\Http\Requests\StoreAppRequest;
 use App\Http\Requests\UpdateAppRequest;
 use App\Models\App;
 use App\Models\Backup;
+use App\Services\BackupRetentionService;
 use App\Services\BackupService;
 use App\Services\StorageConverter;
 use Illuminate\Http\RedirectResponse;
@@ -14,7 +15,10 @@ use Inertia\Response;
 
 class AppController extends Controller
 {
-    public function __construct(protected BackupService $backupService) {}
+    public function __construct(
+        protected BackupService $backupService,
+        protected BackupRetentionService $retentionService
+    ) {}
 
     public function index(): Response
     {
@@ -33,6 +37,8 @@ class AppController extends Controller
             'user_id' => auth()->id(),
             'backup_period' => $request->validated()['backup_period'] ?? null,
             'backup_days' => $request->validated()['backup_days'] ?? null,
+            'retention_days' => $request->validated()['retention_days'] ?? null,
+            'retention_count' => $request->validated()['retention_count'] ?? null,
         ]);
 
         return redirect()->route('apps.show', $app)->with('success', 'App created successfully.');
@@ -88,6 +94,21 @@ class AppController extends Controller
         return redirect()->route('apps.index')->with('success', 'App deleted successfully.');
     }
 
+    public function applyRetention(App $app): RedirectResponse
+    {
+        abort_if($app->user_id !== auth()->id(), 403);
+
+        $result = $this->retentionService->applyRetentionForApp($app);
+
+        if ($result['deleted_count'] > 0) {
+            $freedGb = round($result['freed_space'] / 1024 / 1024 / 1024, 2);
+
+            return redirect()->route('apps.show', $app)->with('success', "Deleted {$result['deleted_count']} backup(s), freed {$freedGb} GB.");
+        }
+
+        return redirect()->route('apps.show', $app)->with('success', 'No backups were deleted.');
+    }
+
     /**
      * Format app data for Inertia responses.
      */
@@ -107,6 +128,8 @@ class AppController extends Controller
             'available_space_bytes' => $availableSpace,
             'backup_period' => $app->backup_period,
             'backup_days' => $app->backup_days,
+            'retention_days' => $app->retention_days,
+            'retention_count' => $app->retention_count,
             'created_at' => $app->created_at,
         ];
     }

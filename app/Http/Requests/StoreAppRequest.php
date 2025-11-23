@@ -28,6 +28,8 @@ class StoreAppRequest extends FormRequest
             'backup_period' => ['nullable', 'string', 'in:daily,weekly,monthly'],
             'backup_days' => ['nullable', 'required_if:backup_period,weekly', 'array'],
             'backup_days.*' => ['string', 'in:M,T,W,R,F,S,U'],
+            'retention_days' => ['nullable', 'integer', 'min:1'],
+            'retention_count' => ['nullable', 'integer', 'min:1'],
         ];
     }
 

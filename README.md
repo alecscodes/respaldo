@@ -77,6 +77,7 @@ The `deploy.sh` script will:
 - 🌙 **Dark mode** for comfortable monitoring
 - 📱 **Mobile-first responsive design** - manage backups from anywhere
 - 🔄 **Automatic updates** - updates run automatically every minute via scheduler
+- 🗑️ **Backup retention** - automatically delete old backups by age or count, runs automatically when space is insufficient
 
 ---
 
@@ -87,14 +88,17 @@ Getting started with backups:
 1. Navigate to **Apps → Create App**
 2. Enter your app name and storage limit (GB)
 3. (Optional) Set expected backup schedule to receive missed backup alerts - useful when running automated backups via cron
-4. Download the CLI script from **Script → Download**
-5. Run the script to create backups (interactively or via cron)
+4. (Optional) Configure backup retention - set retention days and/or count to automatically clean up old backups
+5. Download the CLI script from **Script → Download**
+6. Run the script to create backups (interactively or via cron)
 
 **Managing backups:**
 
 - **View:** Click any app to see backup history
 - **Download:** Click download button on any backup
 - **Delete:** Remove old backups to free up space
+- **Apply Retention:** Click "Apply Retention" button on app page to manually clean up old backups
+- **Automatic cleanup:** Retention policies automatically run when space is insufficient before showing errors
 
 ---
 
@@ -259,6 +263,8 @@ Respaldo includes several helpful Artisan commands:
 | `php artisan ip:unban <ip>` | Unban a specific IP address |
 | `php artisan ip:unban --all` | Unban all banned IP addresses |
 | `php artisan backups:check-missed` | Check for missed backups and send alerts (runs automatically every hour) |
+| `php artisan backups:apply-retention` | Manually apply backup retention policies for all apps |
+| `php artisan backups:apply-retention --app=1` | Manually apply retention policy for a specific app |
 
 ---
 

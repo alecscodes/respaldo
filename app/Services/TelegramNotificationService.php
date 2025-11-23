@@ -114,4 +114,32 @@ class TelegramNotificationService
 
         return $this->sendNotification($message);
     }
+
+    /**
+     * Send a retention cleanup notification.
+     */
+    public function sendRetentionCleanupNotification(App $app, int $deletedCount, int $freedSpace): bool
+    {
+        $freedGb = round($freedSpace / 1024 / 1024 / 1024, 2);
+        $retentionInfo = [];
+
+        if ($app->retention_days !== null) {
+            $retentionInfo[] = "Days: {$app->retention_days}";
+        }
+
+        if ($app->retention_count !== null) {
+            $retentionInfo[] = "Count: {$app->retention_count}";
+        }
+
+        $retentionPolicy = ! empty($retentionInfo) ? implode(', ', $retentionInfo) : 'N/A';
+
+        $message = "🗑️ <b>Backup Retention Cleanup</b>\n\n";
+        $message .= "App: {$app->name}\n";
+        $message .= "Deleted: {$deletedCount} backup(s)\n";
+        $message .= "Freed Space: {$freedGb} GB\n";
+        $message .= "Policy: {$retentionPolicy}\n";
+        $message .= 'Time: '.now()->format('Y-m-d H:i:s');
+
+        return $this->sendNotification($message);
+    }
 }
