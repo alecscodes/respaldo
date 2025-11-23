@@ -6,6 +6,10 @@ use Illuminate\Support\Facades\Process;
 
 class GitUpdateService
 {
+    public function __construct(
+        protected LogService $logService
+    ) {}
+
     /**
      * Check if updates are available from the remote repository.
      *
@@ -28,6 +32,7 @@ class GitUpdateService
             $gitCheck = Process::run('git --version');
             if (! $gitCheck->successful()) {
                 $result['error'] = 'Git is not available';
+                $this->logService->error('system', 'Git update check failed: Git is not available');
 
                 return $result;
             }
@@ -35,6 +40,7 @@ class GitUpdateService
             // Check if .git directory exists
             if (! is_dir($workingDir.'/.git')) {
                 $result['error'] = 'Git repository not found';
+                $this->logService->error('system', 'Git update check failed: Git repository not found');
 
                 return $result;
             }
@@ -60,6 +66,9 @@ class GitUpdateService
             $fetch = Process::path($workingDir)->run('git fetch origin --quiet');
             if (! $fetch->successful()) {
                 $result['error'] = 'Failed to fetch from remote: '.$fetch->errorOutput();
+                $this->logService->error('system', 'Git update check failed: Failed to fetch from remote', [
+                    'error' => $fetch->errorOutput(),
+                ]);
 
                 return $result;
             }
@@ -80,8 +89,20 @@ class GitUpdateService
             }
 
             $result['available'] = $result['commits_behind'] > 0;
+
+            if ($result['available']) {
+                $this->logService->info('system', 'Git update available', [
+                    'current_commit' => $result['current_commit'],
+                    'remote_commit' => $result['remote_commit'],
+                    'commits_behind' => $result['commits_behind'],
+                    'branch' => $branch,
+                ]);
+            }
         } catch (\Exception $e) {
             $result['error'] = $e->getMessage();
+            $this->logService->error('system', 'Git update check failed', [
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return $result;
@@ -104,15 +125,24 @@ class GitUpdateService
         try {
             $workingDir = base_path();
 
+            $this->logService->info('system', 'Git update started');
+
             // Check if there are commits available before updating
             $updateCheck = $this->checkForUpdates();
             if (! $updateCheck['available']) {
                 $result['success'] = true;
                 $result['message'] = 'No updates available: local branch is up to date with remote.';
                 $result['output'] = 'No commits to pull from origin.';
+                $this->logService->info('system', 'Git update skipped: No updates available');
 
                 return $result;
             }
+
+            $this->logService->info('system', 'Git update proceeding', [
+                'commits_behind' => $updateCheck['commits_behind'],
+                'current_commit' => $updateCheck['current_commit'],
+                'remote_commit' => $updateCheck['remote_commit'],
+            ]);
 
             // Non-Docker: call deploy.sh
             // Docker: reset git and run deployment steps
@@ -124,6 +154,9 @@ class GitUpdateService
         } catch (\Exception $e) {
             $result['error'] = $e->getMessage();
             $result['message'] = 'Update failed: '.$e->getMessage();
+            $this->logService->error('system', 'Git update failed', [
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return $result;
@@ -153,6 +186,10 @@ class GitUpdateService
             if (! $fetch->successful()) {
                 $result['error'] = 'Failed to fetch from remote: '.$fetch->errorOutput();
                 $result['message'] = 'Update failed';
+                $this->logService->error('system', 'Git update failed: Failed to fetch from remote', [
+                    'branch' => $branch,
+                    'error' => $fetch->errorOutput(),
+                ]);
 
                 return $result;
             }
@@ -165,6 +202,10 @@ class GitUpdateService
             if (! $reset->successful()) {
                 $result['error'] = 'Failed to reset to remote: '.$reset->errorOutput();
                 $result['message'] = 'Update failed';
+                $this->logService->error('system', 'Git update failed: Failed to reset to remote', [
+                    'branch' => $branch,
+                    'error' => $reset->errorOutput(),
+                ]);
 
                 return $result;
             }
@@ -173,6 +214,9 @@ class GitUpdateService
             Process::path($workingDir)->run('git clean -fd');
 
             $result['output'] = "Git reset to origin/{$branch}\n";
+            $this->logService->info('system', 'Git reset completed', [
+                'branch' => $branch,
+            ]);
 
             // Fix permissions after git reset
             $this->fixPermissionsAfterGitReset($workingDir);
@@ -182,9 +226,15 @@ class GitUpdateService
 
             $result['success'] = true;
             $result['message'] = 'Update completed successfully';
+            $this->logService->info('system', 'Git update completed successfully', [
+                'branch' => $branch,
+            ]);
         } catch (\Exception $e) {
             $result['error'] = $e->getMessage();
             $result['message'] = 'Update failed: '.$e->getMessage();
+            $this->logService->error('system', 'Git update failed', [
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return $result;
@@ -203,6 +253,9 @@ class GitUpdateService
             $result['output'] .= "\n=== Composer Install ===\n".$composer->output();
         } else {
             $result['output'] .= "\n=== Composer Install Failed ===\n".$composer->errorOutput();
+            $this->logService->error('system', 'Git update: Composer install failed', [
+                'error' => $composer->errorOutput(),
+            ]);
         }
 
         // Install NPM dependencies
@@ -223,6 +276,9 @@ class GitUpdateService
                 $result['output'] .= "\n=== NPM Build ===\n".$npmBuild->output();
             } else {
                 $result['output'] .= "\n=== NPM Build Failed ===\n".$npmBuild->errorOutput();
+                $this->logService->error('system', 'Git update: NPM build failed', [
+                    'error' => $npmBuild->errorOutput(),
+                ]);
             }
         }
 
@@ -236,6 +292,9 @@ class GitUpdateService
             $result['output'] .= "\n=== Migrations ===\n".$migrate->output();
         } else {
             $result['output'] .= "\n=== Migrations Failed ===\n".$migrate->errorOutput();
+            $this->logService->error('system', 'Git update: Migrations failed', [
+                'error' => $migrate->errorOutput(),
+            ]);
         }
 
         // Clear caches
@@ -423,10 +482,14 @@ class GitUpdateService
             $result['success'] = true;
             $result['message'] = 'Update completed successfully';
             $result['output'] = trim($deploy->output());
+            $this->logService->info('system', 'Git update completed successfully (deploy.sh)');
         } else {
             $result['error'] = trim($deploy->errorOutput());
             $result['message'] = 'Update failed';
             $result['output'] = trim($deploy->output());
+            $this->logService->error('system', 'Git update failed (deploy.sh)', [
+                'error' => trim($deploy->errorOutput()),
+            ]);
         }
 
         return $result;
