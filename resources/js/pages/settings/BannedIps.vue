@@ -77,13 +77,15 @@ function formatDate(dateString: string): string {
                 <div v-else class="space-y-4">
                     <div class="grid gap-4">
                         <Card v-for="bannedIp in bannedIps" :key="bannedIp.ip">
-                            <CardContent class="pt-6">
+                            <CardContent class="p-4 sm:p-6">
                                 <div
                                     class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
                                 >
-                                    <div class="min-w-0 flex-1 space-y-2">
+                                    <div
+                                        class="min-w-0 flex-1 space-y-2 overflow-hidden"
+                                    >
                                         <span
-                                            class="block font-mono font-semibold break-all"
+                                            class="block font-mono text-sm font-semibold break-all sm:text-base"
                                         >
                                             {{ bannedIp.ip }}
                                         </span>
@@ -93,7 +95,7 @@ function formatDate(dateString: string): string {
                                             <Badge
                                                 v-if="bannedIp.reason"
                                                 variant="secondary"
-                                                class="break-words"
+                                                class="max-w-full text-xs wrap-break-word"
                                             >
                                                 {{ bannedIp.reason }}
                                             </Badge>
@@ -105,7 +107,7 @@ function formatDate(dateString: string): string {
                                             </span>
                                         </div>
                                         <p
-                                            class="text-sm text-muted-foreground"
+                                            class="text-sm wrap-break-word text-muted-foreground"
                                         >
                                             Banned at:
                                             {{ formatDate(bannedIp.banned_at) }}
