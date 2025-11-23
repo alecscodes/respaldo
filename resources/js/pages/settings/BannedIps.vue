@@ -78,19 +78,22 @@ function formatDate(dateString: string): string {
                     <div class="grid gap-4">
                         <Card v-for="bannedIp in bannedIps" :key="bannedIp.ip">
                             <CardContent class="pt-6">
-                                <div class="flex items-start justify-between">
-                                    <div class="space-y-2">
-                                        <div class="flex items-center gap-2">
-                                            <span
-                                                class="font-mono font-semibold"
-                                            >
-                                                {{ bannedIp.ip }}
-                                            </span>
-                                        </div>
-                                        <div class="flex items-center gap-2">
+                                <div
+                                    class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+                                >
+                                    <div class="min-w-0 flex-1 space-y-2">
+                                        <span
+                                            class="block font-mono font-semibold break-all"
+                                        >
+                                            {{ bannedIp.ip }}
+                                        </span>
+                                        <div
+                                            class="flex flex-wrap items-center gap-2"
+                                        >
                                             <Badge
                                                 v-if="bannedIp.reason"
                                                 variant="secondary"
+                                                class="break-words"
                                             >
                                                 {{ bannedIp.reason }}
                                             </Badge>
@@ -111,6 +114,7 @@ function formatDate(dateString: string): string {
                                     <Button
                                         variant="outline"
                                         size="sm"
+                                        class="w-full shrink-0 sm:w-auto"
                                         @click="unbanIp(bannedIp.ip)"
                                     >
                                         <Trash2 class="mr-2 h-4 w-4" />
