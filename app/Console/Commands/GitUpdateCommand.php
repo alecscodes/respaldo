@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\GitUpdateService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 class GitUpdateCommand extends Command
 {
@@ -31,6 +32,16 @@ class GitUpdateCommand extends Command
         $result = $updateService->performUpdate();
 
         if ($result['success']) {
+            $updated = $result['updated'] ?? false;
+            Log::channel('database')->info(
+                $updated ? 'Git update performed' : 'Git update check - up to date',
+                [
+                    'category' => 'system',
+                    'message' => $result['message'],
+                    'action' => $updated ? 'update' : 'check',
+                ]
+            );
+
             $this->info('✓ '.$result['message']);
 
             if ($result['output']) {
@@ -40,6 +51,12 @@ class GitUpdateCommand extends Command
 
             return Command::SUCCESS;
         }
+
+        Log::channel('database')->error('Git update failed', [
+            'category' => 'system',
+            'message' => $result['message'],
+            'error' => $result['error'] ?? null,
+        ]);
 
         $this->error('✗ '.$result['message']);
 

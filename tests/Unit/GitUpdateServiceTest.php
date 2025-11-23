@@ -1,11 +1,10 @@
 <?php
 
 use App\Services\GitUpdateService;
-use App\Services\LogService;
 use Illuminate\Support\Facades\Process;
 
 beforeEach(function () {
-    $this->service = new GitUpdateService(new LogService);
+    $this->service = new GitUpdateService;
 });
 
 test('checkForUpdates returns error when git is not available', function () {
