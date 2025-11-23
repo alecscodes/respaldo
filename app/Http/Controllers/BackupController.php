@@ -24,7 +24,10 @@ class BackupController extends Controller
 
     public function index(App $app): \Illuminate\Http\JsonResponse
     {
-        abort_if($app->user_id !== auth()->id(), 403);
+        if ($app->user_id !== auth()->id()) {
+            $this->log('warning', 'security', 'Unauthorized backup list access attempt', ['app_id' => $app->id]);
+            abort(403);
+        }
 
         /** @var \Illuminate\Database\Eloquent\Collection<int, Backup> $backups */
         $backups = $app->backups()->latest()->get();
@@ -42,7 +45,10 @@ class BackupController extends Controller
 
     public function store(StoreBackupRequest $request, App $app): RedirectResponse|\Illuminate\Http\JsonResponse
     {
-        abort_if($app->user_id !== auth()->id(), 403);
+        if ($app->user_id !== auth()->id()) {
+            $this->log('warning', 'security', 'Unauthorized backup creation attempt', ['app_id' => $app->id]);
+            abort(403);
+        }
 
         $file = $request->file('file');
 
@@ -81,11 +87,25 @@ class BackupController extends Controller
                 'size' => $fileSize,
                 'user_id' => auth()->id(),
             ]);
+
+            $this->log('info', 'backup', 'Backup created', [
+                'backup_id' => $backup->id,
+                'app_id' => $app->id,
+                'app_name' => $app->name,
+                'filename' => $backup->filename,
+                'size' => $fileSize,
+            ]);
         } catch (\Exception $e) {
             $this->telegramService->sendBackupFailureNotification(
                 $app,
                 'Failed to create backup: '.$e->getMessage()
             );
+
+            $this->log('error', 'backup', 'Backup creation failed', [
+                'app_id' => $app->id,
+                'app_name' => $app->name,
+                'error' => $e->getMessage(),
+            ]);
 
             throw $e;
         }
@@ -97,18 +117,34 @@ class BackupController extends Controller
 
     public function download(Backup $backup): BinaryFileResponse|StreamedResponse
     {
-        abort_if($backup->user_id !== auth()->id(), 403);
+        if ($backup->user_id !== auth()->id()) {
+            $this->log('warning', 'security', 'Unauthorized backup download attempt', ['backup_id' => $backup->id]);
+            abort(403);
+        }
         abort_unless(Storage::disk('backups')->exists($backup->file_path), 404, 'Backup file not found.');
+
+        $this->log('info', 'backup', 'Backup downloaded', [
+            'backup_id' => $backup->id,
+            'filename' => $backup->filename,
+        ]);
 
         return Storage::disk('backups')->download($backup->file_path, $backup->filename);
     }
 
     public function destroy(Backup $backup): RedirectResponse|\Illuminate\Http\JsonResponse
     {
-        abort_if($backup->user_id !== auth()->id(), 403);
+        if ($backup->user_id !== auth()->id()) {
+            $this->log('warning', 'security', 'Unauthorized backup deletion attempt', ['backup_id' => $backup->id]);
+            abort(403);
+        }
 
         $this->backupService->deleteBackup($backup->file_path);
         $backup->delete();
+
+        $this->log('info', 'backup', 'Backup deleted', [
+            'backup_id' => $backup->id,
+            'filename' => $backup->filename,
+        ]);
 
         return request()->wantsJson()
             ? response()->json(['message' => 'Backup deleted successfully.'])

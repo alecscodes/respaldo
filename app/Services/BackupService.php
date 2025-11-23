@@ -12,7 +12,8 @@ class BackupService
     public function __construct(
         protected DiskSpaceService $diskSpaceService,
         protected TelegramNotificationService $telegramService,
-        protected BackupRetentionService $retentionService
+        protected BackupRetentionService $retentionService,
+        protected LogService $logService
     ) {}
 
     /**
@@ -30,6 +31,12 @@ class BackupService
                 $diskSpace['percentage_used'],
                 $diskSpace['available']
             );
+
+            $this->logService->warning('system', 'Disk space warning', [
+                'path' => $diskSpace['path'],
+                'percentage_used' => $diskSpace['percentage_used'],
+                'available' => $diskSpace['available'],
+            ]);
         }
 
         // Check if we have enough space on the actual disk
@@ -53,6 +60,13 @@ class BackupService
                         'Insufficient disk space on server. Available: '.round($diskSpace['available'] / 1024 / 1024 / 1024, 2).' GB, Required: '.round($file->getSize() / 1024 / 1024 / 1024, 2).' GB'
                     );
 
+                    $this->logService->critical('backup', 'Insufficient disk space for backup', [
+                        'app_id' => $app->id,
+                        'app_name' => $app->name,
+                        'available' => $diskSpace['available'],
+                        'required' => $file->getSize(),
+                    ]);
+
                     throw new \RuntimeException('Insufficient disk space on server');
                 }
             }
@@ -61,6 +75,13 @@ class BackupService
         try {
             $filename = $this->generateBackupFilename($app, $file);
             Storage::disk('backups')->putFileAs("{$app->id}", $file, $filename);
+
+            $this->logService->info('backup', 'Backup file stored', [
+                'app_id' => $app->id,
+                'app_name' => $app->name,
+                'filename' => $filename,
+                'size' => $file->getSize(),
+            ]);
 
             return [
                 'file_path' => "{$app->id}/{$filename}",
@@ -71,6 +92,12 @@ class BackupService
                 $app,
                 'Failed to store backup file: '.$e->getMessage()
             );
+
+            $this->logService->error('backup', 'Backup storage failed', [
+                'app_id' => $app->id,
+                'app_name' => $app->name,
+                'error' => $e->getMessage(),
+            ]);
 
             throw $e;
         }
@@ -95,6 +122,12 @@ class BackupService
 
     public function deleteBackup(string $filePath): bool
     {
-        return Storage::disk('backups')->delete($filePath);
+        $deleted = Storage::disk('backups')->delete($filePath);
+
+        if ($deleted) {
+            $this->logService->info('backup', 'Backup file deleted', ['file_path' => $filePath]);
+        }
+
+        return $deleted;
     }
 }

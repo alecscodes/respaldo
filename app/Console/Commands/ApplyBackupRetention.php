@@ -8,23 +8,10 @@ use Illuminate\Console\Command;
 
 class ApplyBackupRetention extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
     protected $signature = 'backups:apply-retention {--app= : Apply retention to a specific app ID}';
 
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
     protected $description = 'Apply backup retention policies to delete old backups';
 
-    /**
-     * Execute the console command.
-     */
     public function handle(BackupRetentionService $retentionService): int
     {
         $appId = $this->option('app');
@@ -61,6 +48,13 @@ class ApplyBackupRetention extends Command
         $this->info('Applying retention policies for all apps...');
 
         $result = $retentionService->applyRetentionForAllApps();
+
+        \Illuminate\Support\Facades\Log::channel('database')->info('Retention policy applied for all apps', [
+            'category' => 'retention',
+            'total_deleted' => $result['total_deleted'],
+            'total_freed_space' => $result['total_freed_space'],
+            'apps_processed' => $result['apps_processed'],
+        ]);
 
         if ($result['total_deleted'] > 0) {
             $freedGb = round($result['total_freed_space'] / 1024 / 1024 / 1024, 2);

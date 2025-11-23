@@ -12,6 +12,10 @@ class IpBanService
 
     private const MAX_LOGIN_ATTEMPTS = 2;
 
+    public function __construct(
+        protected LogService $logService
+    ) {}
+
     public function isBanned(Request $request): bool
     {
         $allIps = $this->getAllRealClientIps($request);
@@ -58,6 +62,12 @@ class IpBanService
         foreach ($allIps as $ip) {
             Cache::forget("banned_ip_{$ip}");
         }
+
+        $this->logService->warning('security', 'IP banned', [
+            'ips' => $allIps,
+            'reason' => $reason,
+            'path' => $request->path(),
+        ]);
     }
 
     public function recordFailedLogin(Request $request): bool
@@ -74,9 +84,20 @@ class IpBanService
         Cache::add($key, 0, self::CACHE_TTL);
         $count = Cache::increment($key);
 
+        $this->logService->warning('security', 'Failed login attempt', [
+            'ip' => $primaryIp,
+            'attempts' => $count,
+            'email' => $request->input('email'),
+        ]);
+
         if ($count >= self::MAX_LOGIN_ATTEMPTS) {
             $this->ban($request, 'Failed login attempts');
             Cache::forget($key);
+
+            $this->logService->alert('security', 'IP banned due to failed login attempts', [
+                'ip' => $primaryIp,
+                'attempts' => $count,
+            ]);
 
             return true;
         }
@@ -90,6 +111,7 @@ class IpBanService
 
         if ($deleted) {
             Cache::forget("banned_ip_{$ip}");
+            $this->logService->info('security', 'IP unbanned', ['ip' => $ip]);
         }
 
         return $deleted;

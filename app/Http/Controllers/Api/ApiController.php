@@ -43,6 +43,11 @@ class ApiController extends Controller
             return response()->json(['error' => 'Invalid credentials.'], 401);
         }
 
+        $this->log('info', 'api', 'API login successful', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+        ]);
+
         return response()->json([
             'token' => $user->createToken('respaldo-cli')->plainTextToken,
             'user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email],
@@ -70,6 +75,12 @@ class ApiController extends Controller
             'user_id' => $request->user()->id,
         ]);
 
+        $this->log('info', 'api', 'App created via API', [
+            'app_id' => $app->id,
+            'app_name' => $app->name,
+            'user_id' => $request->user()->id,
+        ]);
+
         return response()->json([
             'id' => $app->id,
             'name' => $app->name,
@@ -79,7 +90,10 @@ class ApiController extends Controller
 
     public function backups(Request $request, App $app): JsonResponse
     {
-        abort_if($app->user_id !== $request->user()->id, 403);
+        if ($app->user_id !== $request->user()->id) {
+            $this->log('warning', 'security', 'Unauthorized API backup list access', ['app_id' => $app->id]);
+            abort(403);
+        }
 
         /** @var \Illuminate\Database\Eloquent\Collection<int, Backup> $backups */
         $backups = $app->backups()->latest()->get();
@@ -96,7 +110,10 @@ class ApiController extends Controller
 
     public function checkSpace(Request $request, App $app): JsonResponse
     {
-        abort_if($app->user_id !== $request->user()->id, 403);
+        if ($app->user_id !== $request->user()->id) {
+            $this->log('warning', 'security', 'Unauthorized API space check', ['app_id' => $app->id]);
+            abort(403);
+        }
 
         $size = (int) $request->query('size', 0);
 
@@ -109,7 +126,10 @@ class ApiController extends Controller
 
     public function createBackup(StoreBackupRequest $request, App $app): JsonResponse
     {
-        abort_if($app->user_id !== $request->user()->id, 403);
+        if ($app->user_id !== $request->user()->id) {
+            $this->log('warning', 'security', 'Unauthorized API backup creation attempt', ['app_id' => $app->id]);
+            abort(403);
+        }
 
         $file = $request->file('file');
         $fileSize = $file->getSize();
@@ -139,11 +159,25 @@ class ApiController extends Controller
                 'size' => $fileSize,
                 'user_id' => $request->user()->id,
             ]);
+
+            $this->log('info', 'api', 'Backup created via API', [
+                'backup_id' => $backup->id,
+                'app_id' => $app->id,
+                'app_name' => $app->name,
+                'filename' => $backup->filename,
+                'size' => $fileSize,
+            ]);
         } catch (\Exception $e) {
             $this->telegramService->sendBackupFailureNotification(
                 $app,
                 'Failed to create backup: '.$e->getMessage()
             );
+
+            $this->log('error', 'api', 'Backup creation failed via API', [
+                'app_id' => $app->id,
+                'app_name' => $app->name,
+                'error' => $e->getMessage(),
+            ]);
 
             throw $e;
         }
@@ -158,8 +192,16 @@ class ApiController extends Controller
 
     public function downloadBackup(Request $request, Backup $backup): BinaryFileResponse|StreamedResponse
     {
-        abort_if($backup->user_id !== $request->user()->id, 403);
+        if ($backup->user_id !== $request->user()->id) {
+            $this->log('warning', 'security', 'Unauthorized API backup download attempt', ['backup_id' => $backup->id]);
+            abort(403);
+        }
         abort_unless(Storage::disk('backups')->exists($backup->file_path), 404, 'Backup file not found.');
+
+        $this->log('info', 'api', 'Backup downloaded via API', [
+            'backup_id' => $backup->id,
+            'filename' => $backup->filename,
+        ]);
 
         return Storage::disk('backups')->download($backup->file_path, $backup->filename);
     }

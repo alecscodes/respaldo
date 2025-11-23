@@ -51,10 +51,16 @@ return Application::configure(basePath: dirname(__DIR__))
         // Ensure API requests return JSON errors
         $exceptions->renderable(function (\Throwable $e, Request $request) {
             if ($request->is('api/*')) {
-                $statusCode = 500;
-                if ($e instanceof HttpException) {
-                    $statusCode = $e->getStatusCode();
-                }
+                $statusCode = $e instanceof HttpException ? $e->getStatusCode() : 500;
+
+                $level = $statusCode >= 500 ? 'error' : 'warning';
+                \Illuminate\Support\Facades\Log::channel('database')->{$level}('API exception', [
+                    'category' => 'api',
+                    'exception' => class_basename($e),
+                    'message' => $e->getMessage(),
+                    'status_code' => $statusCode,
+                    'path' => $request->path(),
+                ]);
 
                 return response()->json([
                     'error' => class_basename($e),
@@ -76,11 +82,21 @@ return Application::configure(basePath: dirname(__DIR__))
             if (str_starts_with($path, 'storage/')) {
                 $filePath = storage_path('app/public/'.ltrim(substr($path, 8), '/'));
                 if (! file_exists($filePath) && $service->shouldBanPath($path)) {
+                    \Illuminate\Support\Facades\Log::channel('database')->warning('Suspicious path access attempt', [
+                        'category' => 'security',
+                        'path' => $path,
+                        'type' => 'non-existent storage file',
+                    ]);
                     $service->ban($request, 'Non-existent storage file: '.$path);
 
                     return response('Access denied', 403);
                 }
             } elseif ($e instanceof NotFoundHttpException && ! $request->route() && $service->shouldBanPath($path)) {
+                \Illuminate\Support\Facades\Log::channel('database')->warning('Suspicious route access attempt', [
+                    'category' => 'security',
+                    'path' => $path,
+                    'type' => 'non-existent route',
+                ]);
                 $service->ban($request, 'Non-existent route: '.$path);
 
                 return response('Access denied', 403);

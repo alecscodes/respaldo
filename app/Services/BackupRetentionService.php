@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\Storage;
 class BackupRetentionService
 {
     public function __construct(
-        protected TelegramNotificationService $telegramService
+        protected TelegramNotificationService $telegramService,
+        protected LogService $logService
     ) {}
 
     /**
@@ -36,7 +37,12 @@ class BackupRetentionService
                     Storage::disk('backups')->delete($backup->file_path);
                 }
                 $backup->delete();
-            } catch (\Exception) {
+            } catch (\Exception $e) {
+                $this->logService->error('retention', 'Failed to delete backup during retention', [
+                    'backup_id' => $backup->id,
+                    'file_path' => $backup->file_path,
+                    'error' => $e->getMessage(),
+                ]);
             }
         });
 
@@ -44,6 +50,13 @@ class BackupRetentionService
 
         if ($deletedCount > 0) {
             $this->telegramService->sendRetentionCleanupNotification($app, $deletedCount, $freedSpace);
+
+            $this->logService->info('retention', 'Retention policy applied', [
+                'app_id' => $app->id,
+                'app_name' => $app->name,
+                'deleted_count' => $deletedCount,
+                'freed_space' => $freedSpace,
+            ]);
         }
 
         return ['deleted_count' => $deletedCount, 'freed_space' => $freedSpace];

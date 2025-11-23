@@ -3,6 +3,7 @@
 use App\Http\Controllers\AppController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LogController;
 use App\Http\Controllers\ScriptController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -27,6 +28,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('backups/{backup}/download', [BackupController::class, 'download'])->name('backups.download');
     Route::delete('backups/{backup}', [BackupController::class, 'destroy'])->name('backups.destroy');
     Route::get('script/download', [ScriptController::class, 'download'])->name('script.download');
+    Route::get('logs', [LogController::class, 'index'])->name('logs.index');
+    Route::delete('logs', [LogController::class, 'destroy'])->name('logs.destroy');
 });
 
 require __DIR__.'/settings.php';

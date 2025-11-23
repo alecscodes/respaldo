@@ -24,7 +24,10 @@ test('middleware blocks banned IPs', function () {
 
     Cache::flush();
 
-    $middleware = new CheckBannedIp(app(IpBanService::class));
+    $middleware = new CheckBannedIp(
+        app(IpBanService::class),
+        app(\App\Services\LogService::class)
+    );
 
     try {
         $response = $middleware->handle($request, fn ($req) => response('ok'));
@@ -40,7 +43,10 @@ test('middleware allows non-banned IPs', function () {
 
     Cache::flush();
 
-    $middleware = new CheckBannedIp(app(IpBanService::class));
+    $middleware = new CheckBannedIp(
+        app(IpBanService::class),
+        app(\App\Services\LogService::class)
+    );
 
     $response = $middleware->handle($request, fn ($req) => response('ok'));
 

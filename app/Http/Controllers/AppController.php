@@ -41,12 +41,24 @@ class AppController extends Controller
             'retention_count' => $request->validated()['retention_count'] ?? null,
         ]);
 
+        $this->log('info', 'app', 'App created', [
+            'app_id' => $app->id,
+            'app_name' => $app->name,
+            'user_id' => auth()->id(),
+        ]);
+
         return redirect()->route('apps.show', $app)->with('success', 'App created successfully.');
     }
 
     public function show(App $app): Response
     {
-        abort_if($app->user_id !== auth()->id(), 403);
+        if ($app->user_id !== auth()->id()) {
+            $this->log('warning', 'security', 'Unauthorized app access attempt', [
+                'app_id' => $app->id,
+                'user_id' => auth()->id(),
+            ]);
+            abort(403);
+        }
 
         /** @var \Illuminate\Database\Eloquent\Collection<int, Backup> $backups */
         $backups = $app->backups()->latest()->get();
@@ -65,7 +77,10 @@ class AppController extends Controller
 
     public function update(UpdateAppRequest $request, App $app): RedirectResponse
     {
-        abort_if($app->user_id !== auth()->id(), 403);
+        if ($app->user_id !== auth()->id()) {
+            $this->log('warning', 'security', 'Unauthorized app update attempt', ['app_id' => $app->id]);
+            abort(403);
+        }
 
         $validated = $request->validated();
 
@@ -76,12 +91,23 @@ class AppController extends Controller
 
         $app->update($validated);
 
+        $this->log('info', 'app', 'App updated', [
+            'app_id' => $app->id,
+            'app_name' => $app->name,
+            'changes' => array_keys($validated),
+        ]);
+
         return redirect()->route('apps.show', $app)->with('success', 'App updated successfully.');
     }
 
     public function destroy(App $app): RedirectResponse
     {
-        abort_if($app->user_id !== auth()->id(), 403);
+        if ($app->user_id !== auth()->id()) {
+            $this->log('warning', 'security', 'Unauthorized app deletion attempt', ['app_id' => $app->id]);
+            abort(403);
+        }
+
+        $backupCount = $app->backups()->count();
 
         // Delete all backup files before deleting the app
         /** @var Backup $backup */
@@ -91,17 +117,33 @@ class AppController extends Controller
 
         $app->delete();
 
+        $this->log('warning', 'app', 'App deleted', [
+            'app_id' => $app->id,
+            'app_name' => $app->name,
+            'backups_deleted' => $backupCount,
+        ]);
+
         return redirect()->route('apps.index')->with('success', 'App deleted successfully.');
     }
 
     public function applyRetention(App $app): RedirectResponse
     {
-        abort_if($app->user_id !== auth()->id(), 403);
+        if ($app->user_id !== auth()->id()) {
+            $this->log('warning', 'security', 'Unauthorized retention application attempt', ['app_id' => $app->id]);
+            abort(403);
+        }
 
         $result = $this->retentionService->applyRetentionForApp($app);
 
         if ($result['deleted_count'] > 0) {
             $freedGb = round($result['freed_space'] / 1024 / 1024 / 1024, 2);
+
+            $this->log('info', 'retention', 'Retention policy applied manually', [
+                'app_id' => $app->id,
+                'app_name' => $app->name,
+                'deleted_count' => $result['deleted_count'],
+                'freed_space' => $result['freed_space'],
+            ]);
 
             return redirect()->route('apps.show', $app)->with('success', "Deleted {$result['deleted_count']} backup(s), freed {$freedGb} GB.");
         }

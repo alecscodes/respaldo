@@ -15,7 +15,13 @@ import { GITHUB_DOCS_URL, GITHUB_REPO_URL } from '@/lib/constants';
 import { dashboard } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { BookOpen, Github, HardDrive, LayoutGrid } from 'lucide-vue-next';
+import {
+    BookOpen,
+    FileText,
+    Github,
+    HardDrive,
+    LayoutGrid,
+} from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
 
 const mainNavItems: NavItem[] = [
@@ -28,6 +34,11 @@ const mainNavItems: NavItem[] = [
         title: 'Apps',
         href: '/apps',
         icon: HardDrive,
+    },
+    {
+        title: 'Logs',
+        href: '/logs',
+        icon: FileText,
     },
 ];
 
