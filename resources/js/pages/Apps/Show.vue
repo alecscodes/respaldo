@@ -37,6 +37,8 @@ interface App {
     storage_size: number;
     used_space: number;
     available_space: number;
+    backup_period?: string | null;
+    backup_days?: string[] | null;
 }
 
 interface Backup {
@@ -156,19 +158,16 @@ const handleDrop = (event: DragEvent) => {
 
 const handleUpload = () => {
     document.documentElement.setAttribute('data-uploading', '');
-    uploadForm.post(
-        `/apps/${props.app.id}/backups`,
-        {
-            preserveScroll: true,
-            onSuccess: handleUploadSuccess,
-            onError: () => {
-                document.documentElement.removeAttribute('data-uploading');
-            },
-            onCancel: () => {
-                document.documentElement.removeAttribute('data-uploading');
-            },
+    uploadForm.post(`/apps/${props.app.id}/backups`, {
+        preserveScroll: true,
+        onSuccess: handleUploadSuccess,
+        onError: () => {
+            document.documentElement.removeAttribute('data-uploading');
         },
-    );
+        onCancel: () => {
+            document.documentElement.removeAttribute('data-uploading');
+        },
+    });
 };
 
 const handleUploadSuccess = () => {
@@ -398,10 +397,7 @@ const actionSheetButtons = computed(() => [
                         </CardDescription>
                     </CardHeader>
                     <CardContent class="space-y-4">
-                        <form
-                            @submit.prevent="handleUpload"
-                            class="space-y-4"
-                        >
+                        <form @submit.prevent="handleUpload" class="space-y-4">
                             <div class="space-y-2">
                                 <label
                                     for="backup-file"

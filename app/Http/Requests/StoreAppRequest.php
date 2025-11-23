@@ -25,20 +25,10 @@ class StoreAppRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'storage_size' => ['required', 'numeric', 'min:0.1'],
+            'backup_period' => ['nullable', 'string', 'in:daily,weekly,monthly'],
+            'backup_days' => ['nullable', 'required_if:backup_period,weekly', 'array'],
+            'backup_days.*' => ['string', 'in:M,T,W,R,F,S,U'],
         ];
-    }
-
-    /**
-     * Prepare the data for validation.
-     */
-    protected function prepareForValidation(): void
-    {
-        // Convert GB to bytes before validation
-        if ($this->has('storage_size')) {
-            $this->merge([
-                'storage_size_bytes' => StorageConverter::gbToBytes((float) $this->storage_size),
-            ]);
-        }
     }
 
     /**

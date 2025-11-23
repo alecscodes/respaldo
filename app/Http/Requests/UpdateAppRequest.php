@@ -25,6 +25,9 @@ class UpdateAppRequest extends FormRequest
         return [
             'name' => ['sometimes', 'string', 'max:255'],
             'storage_size' => ['sometimes', 'numeric', 'min:0.1'],
+            'backup_period' => ['nullable', 'string', 'in:daily,weekly,monthly'],
+            'backup_days' => ['nullable', 'required_if:backup_period,weekly', 'array'],
+            'backup_days.*' => ['string', 'in:M,T,W,R,F,S,U'],
         ];
     }
 

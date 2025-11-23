@@ -95,4 +95,23 @@ class TelegramNotificationService
 
         return $this->sendNotification($message);
     }
+
+    /**
+     * Send a missed backup notification.
+     */
+    public function sendMissedBackupNotification(App $app): bool
+    {
+        $lastBackupTime = $app->backups()->latest()->value('created_at');
+        $lastBackupTimeFormatted = $lastBackupTime
+            ? $lastBackupTime->format('Y-m-d H:i:s')
+            : 'Never';
+
+        $message = "⏰ <b>Missed Backup Alert</b>\n\n";
+        $message .= "App: {$app->name}\n";
+        $message .= 'Schedule: '.ucfirst($app->backup_period ?? 'unknown')."\n";
+        $message .= "Last Backup: {$lastBackupTimeFormatted}\n";
+        $message .= 'Time: '.now()->format('Y-m-d H:i:s');
+
+        return $this->sendNotification($message);
+    }
 }

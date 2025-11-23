@@ -67,11 +67,12 @@ The `deploy.sh` script will:
 
 - 🎯 **Multi-app management** with individual storage limits
 - 📦 **Backup tracking** - view, download, and manage backups for each app
+- ⏰ **Missed backup alerts** - receive notifications when expected backups are missing
 - 🖥️ **CLI script** - download a secure, personalized CLI script for automated server backups
 - 💾 **Storage management** - monitor usage with visual indicators and enforce limits
 - 🚫 **Ignore file support** - CLI script respects `.respaldoignore` (takes precedence) or `.gitignore` files
 - ✅ **Space validation** - double-check storage availability before backups
-- 📢 **Telegram notifications** for instant alerts on backup failures and storage issues
+- 📢 **Telegram notifications** for instant alerts on backup failures, storage issues, and missed backups
 - 🔐 **Two-factor authentication** for enhanced security
 - 🌙 **Dark mode** for comfortable monitoring
 - 📱 **Mobile-first responsive design** - manage backups from anywhere
@@ -85,8 +86,9 @@ Getting started with backups:
 
 1. Navigate to **Apps → Create App**
 2. Enter your app name and storage limit (GB)
-3. Download the CLI script from **Script → Download**
-4. Use the script to create backups interactively or via cron
+3. (Optional) Set expected backup schedule to receive missed backup alerts - useful when running automated backups via cron
+4. Download the CLI script from **Script → Download**
+5. Run the script to create backups (interactively or via cron)
 
 **Managing backups:**
 
@@ -256,6 +258,7 @@ Respaldo includes several helpful Artisan commands:
 | `php artisan git:update` | Manually trigger application update from Git repository (runs automatically every minute) |
 | `php artisan ip:unban <ip>` | Unban a specific IP address |
 | `php artisan ip:unban --all` | Unban all banned IP addresses |
+| `php artisan backups:check-missed` | Check for missed backups and send alerts (runs automatically every hour) |
 
 ---
 

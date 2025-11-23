@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('git:update')->everyMinute();
+Schedule::command('backups:check-missed')->hourly();

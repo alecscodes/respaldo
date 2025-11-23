@@ -18,17 +18,9 @@ class AppController extends Controller
 
     public function index(): Response
     {
-        $apps = App::where('user_id', auth()->id())->get()->map(fn (App $app) => [
-            'id' => $app->id,
-            'name' => $app->name,
-            'storage_size' => $app->storage_size_gb,
-            'storage_size_bytes' => $app->storage_size,
-            'used_space' => StorageConverter::bytesToGb($app->usedSpace()),
-            'used_space_bytes' => $app->usedSpace(),
-            'available_space' => StorageConverter::bytesToGb($app->availableSpace()),
-            'available_space_bytes' => $app->availableSpace(),
-            'created_at' => $app->created_at,
-        ]);
+        $apps = App::where('user_id', auth()->id())
+            ->get()
+            ->map(fn (App $app) => $this->formatAppData($app));
 
         return Inertia::render('Apps/Index', ['apps' => $apps]);
     }
@@ -39,6 +31,8 @@ class AppController extends Controller
             'name' => $request->validated()['name'],
             'storage_size' => $request->validated()['storage_size'],
             'user_id' => auth()->id(),
+            'backup_period' => $request->validated()['backup_period'] ?? null,
+            'backup_days' => $request->validated()['backup_days'] ?? null,
         ]);
 
         return redirect()->route('apps.show', $app)->with('success', 'App created successfully.');
@@ -52,16 +46,7 @@ class AppController extends Controller
         $backups = $app->backups()->latest()->get();
 
         return Inertia::render('Apps/Show', [
-            'app' => [
-                'id' => $app->id,
-                'name' => $app->name,
-                'storage_size' => $app->storage_size_gb,
-                'storage_size_bytes' => $app->storage_size,
-                'used_space' => StorageConverter::bytesToGb($app->usedSpace()),
-                'used_space_bytes' => $app->usedSpace(),
-                'available_space' => StorageConverter::bytesToGb($app->availableSpace()),
-                'available_space_bytes' => $app->availableSpace(),
-            ],
+            'app' => $this->formatAppData($app),
             'backups' => $backups->map(fn (Backup $backup) => [
                 'id' => $backup->id,
                 'filename' => $backup->filename,
@@ -76,7 +61,14 @@ class AppController extends Controller
     {
         abort_if($app->user_id !== auth()->id(), 403);
 
-        $app->update($request->validated());
+        $validated = $request->validated();
+
+        // Clear backup_days if period is not weekly
+        if (isset($validated['backup_period']) && $validated['backup_period'] !== 'weekly') {
+            $validated['backup_days'] = null;
+        }
+
+        $app->update($validated);
 
         return redirect()->route('apps.show', $app)->with('success', 'App updated successfully.');
     }
@@ -94,5 +86,28 @@ class AppController extends Controller
         $app->delete();
 
         return redirect()->route('apps.index')->with('success', 'App deleted successfully.');
+    }
+
+    /**
+     * Format app data for Inertia responses.
+     */
+    private function formatAppData(App $app): array
+    {
+        $usedSpace = $app->usedSpace();
+        $availableSpace = $app->availableSpace();
+
+        return [
+            'id' => $app->id,
+            'name' => $app->name,
+            'storage_size' => $app->storage_size_gb,
+            'storage_size_bytes' => $app->storage_size,
+            'used_space' => StorageConverter::bytesToGb($usedSpace),
+            'used_space_bytes' => $usedSpace,
+            'available_space' => StorageConverter::bytesToGb($availableSpace),
+            'available_space_bytes' => $availableSpace,
+            'backup_period' => $app->backup_period,
+            'backup_days' => $app->backup_days,
+            'created_at' => $app->created_at,
+        ];
     }
 }
