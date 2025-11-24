@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('git:update')->everyMinute();
 Schedule::command('backups:check-missed')->hourly();
+Schedule::command('backups:cleanup-stale-chunks')->hourly();

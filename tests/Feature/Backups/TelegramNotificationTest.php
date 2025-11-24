@@ -138,6 +138,79 @@ test('sends Telegram notification when API backup fails due to insufficient stor
     });
 });
 
+test('sends Telegram notification when space-check API returns insufficient storage', function () {
+    Http::fake([
+        'api.telegram.org/*' => Http::response(['ok' => true], 200),
+    ]);
+
+    Setting::set('telegram_bot_token', 'test-token');
+    Setting::set('telegram_chat_id', 'test-chat-id');
+
+    Storage::fake('backups');
+
+    $user = User::factory()->create();
+    $token = $user->createToken('test-token')->plainTextToken;
+
+    $app = App::factory()->create([
+        'user_id' => $user->id,
+        'name' => 'Test App',
+        'storage_size' => 5 * 1024 * 1024, // 5 MB
+    ]);
+
+    $response = $this->withHeader('Authorization', "Bearer {$token}")
+        ->getJson("/api/apps/{$app->id}/space-check?size=".(10 * 1024 * 1024));
+
+    $response->assertSuccessful();
+    $response->assertJson(['available' => false]);
+
+    Http::assertSent(function ($request) use ($app) {
+        $data = $request->data();
+
+        return $request->url() === 'https://api.telegram.org/bottest-token/sendMessage'
+            && $data['chat_id'] === 'test-chat-id'
+            && str_contains($data['text'], 'Insufficient Storage')
+            && str_contains($data['text'], $app->name);
+    });
+});
+
+test('sends Telegram notification when chunked upload initialization fails due to insufficient storage', function () {
+    Http::fake([
+        'api.telegram.org/*' => Http::response(['ok' => true], 200),
+    ]);
+
+    Setting::set('telegram_bot_token', 'test-token');
+    Setting::set('telegram_chat_id', 'test-chat-id');
+
+    Storage::fake('backups');
+
+    $user = User::factory()->create();
+    $app = App::factory()->create([
+        'user_id' => $user->id,
+        'name' => 'Test App',
+        'storage_size' => 5 * 1024 * 1024, // 5 MB
+    ]);
+
+    $this->actingAs($user);
+
+    $response = $this->postJson(route('backups.chunked.init', $app), [
+        'filename' => 'test.tar.gz',
+        'total_size' => 10 * 1024 * 1024, // 10MB
+        'chunk_size' => 5 * 1024 * 1024, // 5MB chunks
+    ]);
+
+    $response->assertStatus(400);
+    $response->assertJson(['error' => 'Not enough storage space available.']);
+
+    Http::assertSent(function ($request) use ($app) {
+        $data = $request->data();
+
+        return $request->url() === 'https://api.telegram.org/bottest-token/sendMessage'
+            && $data['chat_id'] === 'test-chat-id'
+            && str_contains($data['text'], 'Insufficient Storage')
+            && str_contains($data['text'], $app->name);
+    });
+});
+
 test('does not send Telegram notification when Telegram is not configured', function () {
     Http::fake();
 

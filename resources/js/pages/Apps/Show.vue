@@ -19,6 +19,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { useLargeFileUpload } from '@/composables/useLargeFileUpload';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
@@ -68,6 +69,16 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 const uploadForm = useForm({
     file: null as File | null,
 });
+
+// Use chunked uploads for all files to ensure reliability and support for very large files (up to 2TB)
+const {
+    isUploading,
+    progress,
+    error: uploadError,
+    upload: uploadLargeFile,
+    cancel: cancelUpload,
+    reset: resetUpload,
+} = useLargeFileUpload();
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -159,18 +170,25 @@ const handleDrop = (event: DragEvent) => {
     }
 };
 
-const handleUpload = () => {
-    document.documentElement.setAttribute('data-uploading', '');
-    uploadForm.post(`/apps/${props.app.id}/backups`, {
-        preserveScroll: true,
-        onSuccess: handleUploadSuccess,
-        onError: () => {
-            document.documentElement.removeAttribute('data-uploading');
-        },
-        onCancel: () => {
-            document.documentElement.removeAttribute('data-uploading');
-        },
-    });
+const handleUpload = async () => {
+    if (!uploadFile.value) {
+        return;
+    }
+
+    // Use chunked uploads for all files to ensure reliability and support for very large files (up to 2TB)
+    try {
+        await uploadLargeFile({
+            url: `/apps/${props.app.id}/backups`,
+            file: uploadFile.value,
+            onSuccess: handleUploadSuccess,
+            onError: (errorMessage) => {
+                console.error('Upload error:', errorMessage);
+            },
+        });
+    } catch (error) {
+        // Error is already handled in the composable
+        console.error('Upload failed:', error);
+    }
 };
 
 const handleUploadSuccess = () => {
@@ -178,6 +196,7 @@ const handleUploadSuccess = () => {
     uploadFile.value = null;
     uploadForm.file = null;
     uploadForm.reset('file');
+    resetUpload();
     showUploadDialog.value = false;
     const fileInput = fileInputRef.value;
     if (fileInput) {
@@ -468,33 +487,61 @@ const actionSheetButtons = computed(() => [
                                     class="hidden"
                                     @change="handleFileSelect"
                                 />
-                                <InputError :message="uploadForm.errors.file" />
+                                <InputError
+                                    :message="uploadError || undefined"
+                                />
                                 <p class="text-xs text-muted-foreground">
                                     Supported formats: zip, tar, gz, tar.gz,
                                     img, iso, dmg, pkg, rar, 7z
                                 </p>
+                                <!-- Upload Progress -->
+                                <div v-if="isUploading" class="space-y-2">
+                                    <div
+                                        class="flex items-center justify-between text-sm"
+                                    >
+                                        <span class="text-muted-foreground"
+                                            >Uploading...</span
+                                        >
+                                        <span class="font-medium">
+                                            {{ progress }}%
+                                        </span>
+                                    </div>
+                                    <div
+                                        class="h-2 w-full overflow-hidden rounded-full bg-muted"
+                                    >
+                                        <div
+                                            class="h-full bg-primary transition-all duration-300 ease-out"
+                                            :style="{
+                                                width: `${progress}%`,
+                                            }"
+                                        ></div>
+                                    </div>
+                                </div>
                             </div>
                             <div class="flex justify-end gap-2">
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    @click="showUploadDialog = false"
+                                    @click="
+                                        if (isUploading) {
+                                            cancelUpload();
+                                        }
+                                        showUploadDialog = false;
+                                        resetUpload();
+                                    "
+                                    :disabled="isUploading"
                                 >
-                                    Cancel
+                                    {{
+                                        isUploading ? 'Cancel Upload' : 'Cancel'
+                                    }}
                                 </Button>
                                 <Button
                                     type="submit"
-                                    :disabled="
-                                        !uploadFile ||
-                                        !uploadForm.file ||
-                                        uploadForm.processing
-                                    "
+                                    :disabled="!uploadFile || isUploading"
                                 >
                                     <Upload class="mr-2 h-4 w-4" />
                                     {{
-                                        uploadForm.processing
-                                            ? 'Uploading...'
-                                            : 'Upload'
+                                        isUploading ? 'Uploading...' : 'Upload'
                                     }}
                                 </Button>
                             </div>

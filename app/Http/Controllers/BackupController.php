@@ -2,14 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\FinalizeChunkUploadRequest;
+use App\Http\Requests\InitChunkUploadRequest;
 use App\Http\Requests\StoreBackupRequest;
+use App\Http\Requests\UploadChunkRequest;
 use App\Models\App;
 use App\Models\Backup;
+use App\Models\ChunkUpload;
 use App\Services\BackupRetentionService;
 use App\Services\BackupService;
 use App\Services\StorageConverter;
 use App\Services\TelegramNotificationService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -24,16 +29,10 @@ class BackupController extends Controller
 
     public function index(App $app): \Illuminate\Http\JsonResponse
     {
-        if ($app->user_id !== auth()->id()) {
-            $this->log('warning', 'security', 'Unauthorized backup list access attempt', ['app_id' => $app->id]);
-            abort(403);
-        }
-
-        /** @var \Illuminate\Database\Eloquent\Collection<int, Backup> $backups */
-        $backups = $app->backups()->latest()->get();
+        $this->authorizeApp($app);
 
         return response()->json(
-            $backups->map(fn (Backup $backup) => [
+            $app->backups()->latest()->get()->map(fn (Backup $backup) => [
                 'id' => $backup->id,
                 'filename' => $backup->filename,
                 'size' => StorageConverter::bytesToGb($backup->size),
@@ -45,37 +44,22 @@ class BackupController extends Controller
 
     public function store(StoreBackupRequest $request, App $app): RedirectResponse|\Illuminate\Http\JsonResponse
     {
-        if ($app->user_id !== auth()->id()) {
-            $this->log('warning', 'security', 'Unauthorized backup creation attempt', ['app_id' => $app->id]);
-            abort(403);
-        }
+        $this->authorizeApp($app);
 
         $file = $request->file('file');
-
         if (! $file) {
-            return $request->wantsJson()
-                ? response()->json(['error' => 'No file uploaded.'], 400)
-                : redirect()->back()->withErrors(['file' => 'No file uploaded.']);
+            return $this->errorResponse($request, 'No file uploaded.');
         }
 
         $fileSize = $file->getSize();
+        if (! $this->ensureStorageSpace($app, $fileSize)) {
+            $this->telegramService->sendStorageInsufficientNotification(
+                $app,
+                $fileSize,
+                $app->availableSpace()
+            );
 
-        if (! $app->canBackup($fileSize)) {
-            // Try to free space by running retention cleanup for this app
-            $this->retentionService->applyRetentionForApp($app);
-            $app->refresh();
-
-            if (! $app->canBackup($fileSize)) {
-                $this->telegramService->sendStorageInsufficientNotification(
-                    $app,
-                    $fileSize,
-                    $app->availableSpace()
-                );
-
-                return $request->wantsJson()
-                    ? response()->json(['error' => 'Not enough storage space available.'], 400)
-                    : redirect()->back()->with('error', 'Not enough storage space available.');
-            }
+            return $this->errorResponse($request, 'Not enough storage space available.');
         }
 
         try {
@@ -96,17 +80,12 @@ class BackupController extends Controller
                 'size' => $fileSize,
             ]);
         } catch (\Exception $e) {
-            $this->telegramService->sendBackupFailureNotification(
-                $app,
-                'Failed to create backup: '.$e->getMessage()
-            );
-
+            $this->telegramService->sendBackupFailureNotification($app, 'Failed to create backup: '.$e->getMessage());
             $this->log('error', 'backup', 'Backup creation failed', [
                 'app_id' => $app->id,
                 'app_name' => $app->name,
                 'error' => $e->getMessage(),
             ]);
-
             throw $e;
         }
 
@@ -121,6 +100,7 @@ class BackupController extends Controller
             $this->log('warning', 'security', 'Unauthorized backup download attempt', ['backup_id' => $backup->id]);
             abort(403);
         }
+
         abort_unless(Storage::disk('backups')->exists($backup->file_path), 404, 'Backup file not found.');
 
         $this->log('info', 'backup', 'Backup downloaded', [
@@ -149,5 +129,222 @@ class BackupController extends Controller
         return request()->wantsJson()
             ? response()->json(['message' => 'Backup deleted successfully.'])
             : redirect()->back()->with('success', 'Backup deleted successfully.');
+    }
+
+    public function initChunkUpload(InitChunkUploadRequest $request, App $app): \Illuminate\Http\JsonResponse
+    {
+        $this->authorizeApp($app);
+
+        $totalSize = $request->integer('total_size');
+        $chunkSize = $request->integer('chunk_size');
+        $filename = $request->string('filename')->toString();
+
+        if (! $this->ensureStorageSpace($app, $totalSize)) {
+            $this->telegramService->sendStorageInsufficientNotification(
+                $app,
+                $totalSize,
+                $app->availableSpace()
+            );
+
+            return response()->json(['error' => 'Not enough storage space available.'], 400);
+        }
+
+        $chunkUpload = ChunkUpload::create([
+            'upload_id' => ChunkUpload::generateUploadId(),
+            'app_id' => $app->id,
+            'user_id' => auth()->id(),
+            'filename' => $filename,
+            'total_size' => $totalSize,
+            'total_chunks' => (int) ceil($totalSize / $chunkSize),
+            'chunk_size' => $chunkSize,
+            'status' => 'in_progress',
+            'expires_at' => now()->addHours(24),
+        ]);
+
+        $this->log('info', 'backup', 'Chunk upload initialized', [
+            'upload_id' => $chunkUpload->upload_id,
+            'app_id' => $app->id,
+            'filename' => $filename,
+            'total_size' => $totalSize,
+        ]);
+
+        return response()->json([
+            'upload_id' => $chunkUpload->upload_id,
+            'total_chunks' => $chunkUpload->total_chunks,
+            'chunk_size' => $chunkSize,
+        ], 201);
+    }
+
+    public function uploadChunk(UploadChunkRequest $request, App $app): \Illuminate\Http\JsonResponse
+    {
+        $this->authorizeApp($app);
+
+        $chunkUpload = $this->findChunkUpload($request->string('upload_id')->toString(), $app);
+
+        if ($chunkUpload->status !== 'in_progress') {
+            return response()->json(['error' => 'Upload session is not in progress.'], 400);
+        }
+
+        $chunkIndex = $request->integer('chunk_index');
+
+        if ($chunkUpload->hasChunk($chunkIndex)) {
+            return response()->json([
+                'message' => 'Chunk already uploaded.',
+                'progress' => $chunkUpload->getProgressPercentage(),
+            ]);
+        }
+
+        try {
+            DB::transaction(function () use ($chunkUpload, $request, $chunkIndex) {
+                $this->backupService->storeChunk($chunkUpload, $request->file('chunk'), $chunkIndex);
+                $chunkUpload->markChunkUploaded($chunkIndex);
+                $chunkUpload->save();
+            });
+
+            return response()->json([
+                'message' => 'Chunk uploaded successfully.',
+                'progress' => $chunkUpload->getProgressPercentage(),
+                'uploaded_chunks' => count($chunkUpload->uploaded_chunks),
+                'total_chunks' => $chunkUpload->total_chunks,
+            ]);
+        } catch (\Exception $e) {
+            $this->log('error', 'backup', 'Chunk upload failed', [
+                'upload_id' => $chunkUpload->upload_id,
+                'chunk_index' => $chunkIndex,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json(['error' => 'Failed to upload chunk: '.$e->getMessage()], 500);
+        }
+    }
+
+    public function finalizeChunkUpload(FinalizeChunkUploadRequest $request, App $app): \Illuminate\Http\JsonResponse
+    {
+        $this->authorizeApp($app);
+
+        $chunkUpload = $this->findChunkUpload($request->string('upload_id')->toString(), $app);
+
+        if ($chunkUpload->status !== 'in_progress') {
+            return response()->json(['error' => 'Upload session is not in progress.'], 400);
+        }
+
+        if (! $chunkUpload->isComplete()) {
+            return response()->json([
+                'error' => 'Not all chunks have been uploaded.',
+                'missing_chunks' => $chunkUpload->getMissingChunks(),
+            ], 400);
+        }
+
+        try {
+            $backup = DB::transaction(function () use ($chunkUpload, $app) {
+                $backupData = $this->backupService->assembleChunks($chunkUpload);
+
+                $backup = Backup::create([
+                    'app_id' => $app->id,
+                    'filename' => $backupData['filename'],
+                    'file_path' => $backupData['file_path'],
+                    'size' => $chunkUpload->total_size,
+                    'user_id' => auth()->id(),
+                ]);
+
+                $chunkUpload->update([
+                    'status' => 'completed',
+                    'file_path' => $backupData['file_path'],
+                ]);
+
+                return $backup;
+            });
+
+            $this->log('info', 'backup', 'Chunked backup created', [
+                'backup_id' => $backup->id,
+                'app_id' => $app->id,
+                'filename' => $backup->filename,
+            ]);
+
+            return response()->json(['message' => 'Backup created successfully.', 'backup_id' => $backup->id], 201);
+        } catch (\Exception $e) {
+            $chunkUpload->update([
+                'status' => 'failed',
+                'error_message' => $e->getMessage(),
+            ]);
+
+            $this->telegramService->sendBackupFailureNotification($app, 'Failed to finalize chunked backup: '.$e->getMessage());
+            $this->log('error', 'backup', 'Chunked backup finalization failed', [
+                'upload_id' => $chunkUpload->upload_id,
+                'app_id' => $app->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json(['error' => 'Failed to finalize backup: '.$e->getMessage()], 500);
+        }
+    }
+
+    public function chunkUploadStatus(App $app, string $uploadId): \Illuminate\Http\JsonResponse
+    {
+        $this->authorizeApp($app);
+
+        $chunkUpload = $this->findChunkUpload($uploadId, $app);
+
+        return response()->json([
+            'upload_id' => $chunkUpload->upload_id,
+            'status' => $chunkUpload->status,
+            'progress' => $chunkUpload->getProgressPercentage(),
+            'uploaded_chunks' => count($chunkUpload->uploaded_chunks ?? []),
+            'total_chunks' => $chunkUpload->total_chunks,
+            'missing_chunks' => $chunkUpload->getMissingChunks(),
+            'error_message' => $chunkUpload->error_message,
+        ]);
+    }
+
+    /**
+     * Authorize that the user owns the app.
+     */
+    protected function authorizeApp(App $app): void
+    {
+        if ($app->user_id !== auth()->id()) {
+            $this->log('warning', 'security', 'Unauthorized app access attempt', ['app_id' => $app->id]);
+            abort(403);
+        }
+    }
+
+    /**
+     * Find chunk upload and authorize access.
+     */
+    protected function findChunkUpload(string $uploadId, App $app): ChunkUpload
+    {
+        return ChunkUpload::where('upload_id', $uploadId)
+            ->where('app_id', $app->id)
+            ->where('user_id', auth()->id())
+            ->firstOrFail();
+    }
+
+    /**
+     * Ensure storage space is available, applying retention if needed.
+     */
+    protected function ensureStorageSpace(App $app, int $requiredSize): bool
+    {
+        if ($app->canBackup($requiredSize)) {
+            return true;
+        }
+
+        $this->retentionService->applyRetentionForApp($app);
+        $app->refresh();
+
+        return $app->canBackup($requiredSize);
+    }
+
+    /**
+     * Return error response based on request type.
+     */
+    protected function errorResponse(
+        \Illuminate\Http\Request $request,
+        string $message,
+        array $data = []
+    ): RedirectResponse|\Illuminate\Http\JsonResponse {
+        if ($request->wantsJson()) {
+            return response()->json(array_merge(['error' => $message], $data), 400);
+        }
+
+        return redirect()->back()->with('error', $message);
     }
 }

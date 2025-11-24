@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\App;
+use App\Models\ChunkUpload;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -106,16 +107,23 @@ class BackupService
     /**
      * Generate a backup filename using best practices: app-name-YYYY-MM-DD-HH-mm-ss.tar.gz
      */
-    protected function generateBackupFilename(App $app, UploadedFile $file): string
+    protected function generateBackupFilename(App $app, UploadedFile|string $fileOrName): string
     {
         $appSlug = Str::slug($app->name);
         $datetime = now()->format('Y-m-d-H-i-s');
 
-        // Determine file extension - prefer .tar.gz, fallback to original extension
-        $originalName = strtolower($file->getClientOriginalName());
-        $extension = str_ends_with($originalName, '.tar.gz')
-            ? 'tar.gz'
-            : ($file->getClientOriginalExtension() ?: 'tar.gz');
+        // Extract extension from file or filename
+        if ($fileOrName instanceof UploadedFile) {
+            $originalName = strtolower($fileOrName->getClientOriginalName());
+            $extension = str_ends_with($originalName, '.tar.gz')
+                ? 'tar.gz'
+                : ($fileOrName->getClientOriginalExtension() ?: 'tar.gz');
+        } else {
+            $originalName = strtolower($fileOrName);
+            $extension = str_ends_with($originalName, '.tar.gz')
+                ? 'tar.gz'
+                : (pathinfo($fileOrName, PATHINFO_EXTENSION) ?: 'tar.gz');
+        }
 
         return "{$appSlug}-{$datetime}.{$extension}";
     }
@@ -129,5 +137,119 @@ class BackupService
         }
 
         return $deleted;
+    }
+
+    /**
+     * Assemble chunks into final backup file.
+     *
+     * @return array{file_path: string, filename: string}
+     */
+    public function assembleChunks(ChunkUpload $chunkUpload): array
+    {
+        $app = $chunkUpload->app;
+        $filename = $this->generateBackupFilename($app, $chunkUpload->filename);
+        $finalPath = "{$app->id}/{$filename}";
+        $chunksDisk = Storage::disk('chunks');
+        $backupsDisk = Storage::disk('backups');
+        $chunkDir = $chunkUpload->upload_id;
+
+        $tempFile = tmpfile();
+        if (! $tempFile) {
+            throw new \RuntimeException('Failed to create temporary file');
+        }
+
+        try {
+            // Write chunks in order to temp file
+            for ($i = 0; $i < $chunkUpload->total_chunks; $i++) {
+                $chunkPath = "{$chunkDir}/chunk_{$i}";
+                if (! $chunksDisk->exists($chunkPath)) {
+                    throw new \RuntimeException("Missing chunk {$i}");
+                }
+
+                $chunkStream = $chunksDisk->readStream($chunkPath);
+                if (! $chunkStream) {
+                    throw new \RuntimeException("Failed to read chunk {$i}");
+                }
+
+                stream_copy_to_stream($chunkStream, $tempFile);
+                fclose($chunkStream);
+            }
+
+            // Write temp file to final location
+            rewind($tempFile);
+            $backupsDisk->writeStream($finalPath, $tempFile);
+            fclose($tempFile);
+
+            // Verify file size
+            $actualSize = $backupsDisk->size($finalPath);
+            if ($actualSize !== $chunkUpload->total_size) {
+                $backupsDisk->delete($finalPath);
+                throw new \RuntimeException("File size mismatch. Expected: {$chunkUpload->total_size}, Got: {$actualSize}");
+            }
+
+            // Cleanup chunk files
+            $chunksDisk->deleteDirectory($chunkDir);
+
+            $this->logService->info('backup', 'Chunked backup assembled', [
+                'app_id' => $app->id,
+                'app_name' => $app->name,
+                'filename' => $filename,
+                'size' => $chunkUpload->total_size,
+                'chunks' => $chunkUpload->total_chunks,
+            ]);
+
+            return [
+                'file_path' => $finalPath,
+                'filename' => $filename,
+            ];
+        } catch (\Exception $e) {
+            if (is_resource($tempFile)) {
+                fclose($tempFile);
+            }
+            if ($backupsDisk->exists($finalPath)) {
+                $backupsDisk->delete($finalPath);
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * Store a chunk file.
+     */
+    public function storeChunk(ChunkUpload $chunkUpload, UploadedFile $chunkFile, int $chunkIndex): void
+    {
+        $chunksDisk = Storage::disk('chunks');
+        $chunkPath = "{$chunkUpload->upload_id}/chunk_{$chunkIndex}";
+
+        // Calculate expected size (last chunk may be smaller)
+        $expectedSize = ($chunkIndex === $chunkUpload->total_chunks - 1)
+            ? ($chunkUpload->total_size - ($chunkIndex * $chunkUpload->chunk_size))
+            : $chunkUpload->chunk_size;
+
+        // Validate size
+        if ($chunkFile->getSize() !== $expectedSize) {
+            throw new \RuntimeException("Chunk {$chunkIndex} size mismatch. Expected: {$expectedSize}, Got: {$chunkFile->getSize()}");
+        }
+
+        // Store chunk file - handle both real and fake files
+        $realPath = $chunkFile->getRealPath();
+        $content = ($realPath && file_exists($realPath))
+            ? file_get_contents($realPath)
+            : file_get_contents($chunkFile->getPathname());
+
+        $chunksDisk->put($chunkPath, $content);
+
+        // Verify file was stored
+        if (! $chunksDisk->exists($chunkPath)) {
+            throw new \RuntimeException("Failed to store chunk {$chunkIndex}");
+        }
+    }
+
+    /**
+     * Cleanup chunk files and directory.
+     */
+    public function cleanupChunks(string $uploadId): void
+    {
+        Storage::disk('chunks')->deleteDirectory($uploadId);
     }
 }

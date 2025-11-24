@@ -24,6 +24,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('apps', AppController::class);
     Route::get('apps/{app}/backups', [BackupController::class, 'index'])->name('apps.backups');
     Route::post('apps/{app}/backups', [BackupController::class, 'store'])->name('backups.store');
+    Route::post('apps/{app}/backups/chunked/init', [BackupController::class, 'initChunkUpload'])->name('backups.chunked.init');
+    Route::post('apps/{app}/backups/chunked/upload', [BackupController::class, 'uploadChunk'])->name('backups.chunked.upload');
+    Route::post('apps/{app}/backups/chunked/finalize', [BackupController::class, 'finalizeChunkUpload'])->name('backups.chunked.finalize');
+    Route::get('apps/{app}/backups/chunked/{uploadId}/status', [BackupController::class, 'chunkUploadStatus'])->name('backups.chunked.status');
     Route::post('apps/{app}/apply-retention', [AppController::class, 'applyRetention'])->name('apps.apply-retention');
     Route::get('backups/{backup}/download', [BackupController::class, 'download'])->name('backups.download');
     Route::delete('backups/{backup}', [BackupController::class, 'destroy'])->name('backups.destroy');

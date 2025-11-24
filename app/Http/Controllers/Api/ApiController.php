@@ -117,6 +117,21 @@ class ApiController extends Controller
 
         $size = (int) $request->query('size', 0);
 
+        // Try retention cleanup if space is not available
+        if (! $app->canBackup($size)) {
+            $this->retentionService->applyRetentionForApp($app);
+            $app->refresh();
+
+            // Send notification if still not available after cleanup
+            if (! $app->canBackup($size)) {
+                $this->telegramService->sendStorageInsufficientNotification(
+                    $app,
+                    $size,
+                    $app->availableSpace()
+                );
+            }
+        }
+
         return response()->json([
             'available' => $app->canBackup($size),
             'available_space' => StorageConverter::bytesToGb($app->availableSpace()),

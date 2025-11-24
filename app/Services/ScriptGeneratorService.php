@@ -332,47 +332,147 @@ create_backup() {
         return 1
     fi
 
-    # Check available space via API
+    # Check available space
     echo -e "${YELLOW}Checking available space...${NC}"
-    space_check=$(curl -s -H "Authorization: Bearer $TOKEN" -H "User-Agent: $USER_AGENT" "$BASE_URL/api/apps/$app_id/space-check?size=$file_size")
-
-    if echo "$space_check" | grep -q '"available":false'; then
+    if curl -s -H "Authorization: Bearer $TOKEN" -H "User-Agent: $USER_AGENT" \
+        "$BASE_URL/api/apps/$app_id/space-check?size=$file_size" | grep -q '"available":false'; then
         echo -e "${RED}Error: Not enough space available${NC}"
         rm -f "$backup_file" "$exclude_file"
         return 1
     fi
 
-    # Upload backup
+    # Upload using chunked upload with adaptive chunk size
     size_mb=$(awk "BEGIN {printf \"%.2f\", $file_size/1024/1024}")
     echo -e "${YELLOW}Uploading backup (size: ${size_mb}MB)...${NC}"
 
-    response=$(curl -s -w "\n%{http_code}" -X POST \
-        -H "Authorization: Bearer $TOKEN" \
-        -H "User-Agent: $USER_AGENT" \
-        -F "file=@$backup_file;type=application/gzip" \
-        "$BASE_URL/api/apps/$app_id/backups")
-
-    http_code=$(echo "$response" | tail -n1)
-
-    # Extract body (compatible with macOS)
-    body=$(echo "$response" | sed '$d')
-
-    if [ "$http_code" = "200" ] || [ "$http_code" = "201" ]; then
-        echo -e "${GREEN}Backup created successfully!${NC}"
-        echo "$body"
+    # Use larger chunks for larger files to reduce overhead
+    # < 100MB: 10MB chunks, < 1GB: 25MB chunks, >= 1GB: 50MB chunks
+    if [ $file_size -lt $((100 * 1024 * 1024)) ]; then
+        chunk_size=$((10 * 1024 * 1024))
+    elif [ $file_size -lt $((1024 * 1024 * 1024)) ]; then
+        chunk_size=$((25 * 1024 * 1024))
     else
-        echo -e "${RED}Error uploading backup: HTTP $http_code${NC}"
-        if [ "$http_code" = "000" ]; then
-            echo -e "${YELLOW}Connection failed. Please check:${NC}"
-            echo "- Server is running at $BASE_URL"
-            echo "- Your internet connection"
-            echo "- Firewall settings"
-        else
-            echo "Response: $body"
-        fi
+        chunk_size=$((50 * 1024 * 1024))
+    fi
+    filename=$(basename "$backup_file")
+
+    # Initialize upload
+    init_body=$(curl -s -X POST \
+        -H "Authorization: Bearer $TOKEN" \
+        -H "Content-Type: application/json" \
+        -H "User-Agent: $USER_AGENT" \
+        -d "{\"filename\":\"$filename\",\"total_size\":$file_size,\"chunk_size\":$chunk_size}" \
+        -w "\n%{http_code}" \
+        "$BASE_URL/api/apps/$app_id/backups/chunked/init")
+
+    init_http_code=$(echo "$init_body" | tail -n1)
+    init_body=$(echo "$init_body" | sed '$d')
+
+    if [ "$init_http_code" != "201" ]; then
+        echo -e "${RED}Error initializing upload: HTTP $init_http_code${NC}"
+        echo "$init_body"
+        rm -f "$backup_file" "$exclude_file"
+        return 1
     fi
 
-    # Cleanup
+    upload_id=$(echo "$init_body" | grep -o '"upload_id":"[^"]*"' | sed 's/"upload_id":"\([^"]*\)"/\1/')
+    total_chunks=$(echo "$init_body" | grep -o '"total_chunks":[0-9]*' | sed 's/"total_chunks":\([0-9]*\)/\1/')
+
+    if [ -z "$upload_id" ] || [ -z "$total_chunks" ]; then
+        echo -e "${RED}Error: Failed to parse upload response${NC}"
+        rm -f "$backup_file" "$exclude_file"
+        return 1
+    fi
+
+    # Upload chunks with optimized extraction
+    chunk_index=0
+    last_progress=0
+    while [ $chunk_index -lt $total_chunks ]; do
+        start=$((chunk_index * chunk_size))
+        chunk_length=$((start + chunk_size > file_size ? file_size - start : chunk_size))
+
+        chunk_temp=$(mktemp)
+        # Use optimized block size for better performance
+        # For chunks > 1MB, use 1MB blocks; otherwise use bs=1
+        if [ $chunk_length -gt $((1024 * 1024)) ]; then
+            block_size=$((1024 * 1024))
+            blocks=$((chunk_length / block_size))
+            remainder=$((chunk_length % block_size))
+            skip_blocks=$((start / block_size))
+
+            if [ $blocks -gt 0 ]; then
+                dd if="$backup_file" of="$chunk_temp" bs=$block_size skip=$skip_blocks count=$blocks 2>/dev/null || {
+                    echo -e "${RED}Error extracting chunk $chunk_index${NC}"
+                    rm -f "$chunk_temp" "$backup_file" "$exclude_file"
+                    return 1
+                }
+            fi
+
+            if [ $remainder -gt 0 ]; then
+                dd if="$backup_file" of="$chunk_temp" bs=1 skip=$((start + blocks * block_size)) count=$remainder seek=$((blocks * block_size)) 2>/dev/null || {
+                    echo -e "${RED}Error extracting chunk $chunk_index${NC}"
+                    rm -f "$chunk_temp" "$backup_file" "$exclude_file"
+                    return 1
+                }
+            fi
+        else
+            # Small chunk, use bs=1
+            dd if="$backup_file" of="$chunk_temp" bs=1 skip=$start count=$chunk_length 2>/dev/null || {
+                echo -e "${RED}Error extracting chunk $chunk_index${NC}"
+                rm -f "$chunk_temp" "$backup_file" "$exclude_file"
+                return 1
+            }
+        fi
+
+        chunk_http_code=$(curl -s -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "User-Agent: $USER_AGENT" \
+            -F "upload_id=$upload_id" \
+            -F "chunk_index=$chunk_index" \
+            -F "chunk=@$chunk_temp" \
+            -w "%{http_code}" \
+            -o /dev/null \
+            "$BASE_URL/api/apps/$app_id/backups/chunked/upload")
+
+        rm -f "$chunk_temp"
+
+        if [ "$chunk_http_code" != "200" ]; then
+            echo -e "${RED}Error uploading chunk $chunk_index: HTTP $chunk_http_code${NC}"
+            rm -f "$backup_file" "$exclude_file"
+            return 1
+        fi
+
+        # Update progress every 5% or every 10 chunks, whichever comes first
+        progress=$(( (chunk_index + 1) * 100 / total_chunks ))
+        if [ $((progress - last_progress)) -ge 5 ] || [ $((chunk_index % 10)) -eq 9 ] || [ $chunk_index -eq $((total_chunks - 1)) ]; then
+            echo -ne "\r${YELLOW}Progress: ${progress}% (chunk $((chunk_index + 1))/$total_chunks)${NC}"
+            last_progress=$progress
+        fi
+        chunk_index=$((chunk_index + 1))
+    done
+    echo ""
+
+    # Finalize
+    finalize_body=$(curl -s -X POST \
+        -H "Authorization: Bearer $TOKEN" \
+        -H "Content-Type: application/json" \
+        -H "User-Agent: $USER_AGENT" \
+        -d "{\"upload_id\":\"$upload_id\"}" \
+        -w "\n%{http_code}" \
+        "$BASE_URL/api/apps/$app_id/backups/chunked/finalize")
+
+    finalize_http_code=$(echo "$finalize_body" | tail -n1)
+    finalize_body=$(echo "$finalize_body" | sed '$d')
+
+    if [ "$finalize_http_code" = "201" ]; then
+        echo -e "${GREEN}Backup created successfully!${NC}"
+    else
+        echo -e "${RED}Error finalizing upload: HTTP $finalize_http_code${NC}"
+        [ "$finalize_http_code" = "000" ] && echo -e "${YELLOW}Connection failed. Check server and network.${NC}" || echo "$finalize_body"
+        rm -f "$backup_file" "$exclude_file"
+        return 1
+    fi
+
     rm -f "$backup_file" "$exclude_file"
 }
 
