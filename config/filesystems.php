@@ -62,21 +62,21 @@ return [
 
         'backups' => [
             'driver' => 'local',
-            // In Docker, backups are mounted at /var/www/backups
-            // Otherwise, use BACKUP_VOLUME env or default to ./backups
             'root' => (function () {
-                // Check if running in Docker
-                $isDocker = file_exists('/.dockerenv')
-                    || (file_exists('/proc/self/cgroup')
-                        && str_contains(@file_get_contents('/proc/self/cgroup') ?: '', 'docker'));
-
-                // Use /var/www/backups only if in Docker and the directory exists
-                if ($isDocker && file_exists('/var/www/backups') && is_dir('/var/www/backups')) {
+                // Docker: use /var/www/backups if available
+                if (file_exists('/.dockerenv') && file_exists('/var/www/backups')) {
                     return '/var/www/backups';
                 }
 
-                // Otherwise, use BACKUP_VOLUME env or default to ./backups
-                return env('BACKUP_VOLUME') ?: base_path('backups');
+                // Use BACKUP_VOLUME from .env if set, otherwise use private storage
+                $backupVolume = env('BACKUP_VOLUME');
+                if ($backupVolume) {
+                    return str_starts_with($backupVolume, '/')
+                        ? $backupVolume
+                        : base_path(ltrim($backupVolume, './'));
+                }
+
+                return storage_path('app/private/backups');
             })(),
             'throw' => false,
             'report' => false,
