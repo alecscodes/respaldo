@@ -30,4 +30,4 @@ yarn-error.log
 /.npm-cache
 /.npm-global
 /.composer-cache
-backups
+/backups
