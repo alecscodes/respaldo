@@ -16,4 +16,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/apps/{app}/backups/chunked/finalize', [\App\Http\Controllers\BackupController::class, 'finalizeChunkUpload']);
     Route::get('/apps/{app}/backups/chunked/{uploadId}/status', [\App\Http\Controllers\BackupController::class, 'chunkUploadStatus']);
     Route::get('/backups/{backup}/download', [ApiController::class, 'downloadBackup']);
+    Route::get('/script/version', [ApiController::class, 'scriptVersion']);
+    Route::get('/script/download', [ApiController::class, 'scriptDownload']);
 });

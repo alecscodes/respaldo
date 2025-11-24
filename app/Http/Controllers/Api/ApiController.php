@@ -10,10 +10,12 @@ use App\Models\Backup;
 use App\Services\BackupRetentionService;
 use App\Services\BackupService;
 use App\Services\IpBanService;
+use App\Services\ScriptGeneratorService;
 use App\Services\StorageConverter;
 use App\Services\TelegramNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -25,7 +27,8 @@ class ApiController extends Controller
         protected BackupService $backupService,
         protected IpBanService $ipBanService,
         protected TelegramNotificationService $telegramService,
-        protected BackupRetentionService $retentionService
+        protected BackupRetentionService $retentionService,
+        protected ScriptGeneratorService $scriptGeneratorService
     ) {}
 
     public function login(Request $request): JsonResponse
@@ -219,5 +222,25 @@ class ApiController extends Controller
         ]);
 
         return Storage::disk('backups')->download($backup->file_path, $backup->filename);
+    }
+
+    public function scriptVersion(Request $request): JsonResponse
+    {
+        $version = $this->scriptGeneratorService->getScriptVersion();
+
+        return response()->json([
+            'version' => $version,
+        ]);
+    }
+
+    public function scriptDownload(Request $request): Response
+    {
+        $script = $this->scriptGeneratorService->generateScript($request->user(), config('app.url'));
+
+        return response($script, 200, [
+            'Content-Type' => 'application/x-sh',
+            'Content-Disposition' => 'attachment; filename="respaldo.sh"',
+            'X-Executable' => 'true',
+        ]);
     }
 }

@@ -3,14 +3,27 @@
 namespace App\Services;
 
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 
 class ScriptGeneratorService
 {
-    public function generateScript(User $user, string $baseUrl): string
+    /**
+     * Get the current script version hash.
+     * This is a hash of the script template (without user-specific tokens).
+     */
+    public function getScriptVersion(): string
     {
-        $token = $user->createToken('respaldo-cli')->plainTextToken;
+        $scriptTemplate = $this->getScriptTemplate();
 
-        $script = <<<'BASH'
+        return hash('sha256', $scriptTemplate);
+    }
+
+    /**
+     * Get the script template without user-specific replacements.
+     */
+    private function getScriptTemplate(): string
+    {
+        return <<<'BASH'
 #!/bin/sh
 
 # Respaldo Backup CLI Script
@@ -48,6 +61,7 @@ TOKEN="{{TOKEN}}"
 CONFIG_DIR="$HOME/.respaldo"
 CONFIG_FILE="$CONFIG_DIR/config"
 APPS_MAP_FILE="$CONFIG_DIR/apps_map"
+VERSION_FILE="$CONFIG_DIR/script_version"
 USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
 
 # Colors for output
@@ -91,6 +105,92 @@ if [ -z "$TOKEN" ]; then
     echo "Please download a new script from the admin panel."
     exit 1
 fi
+
+# Auto-update script before running
+auto_update_script() {
+    # Skip auto-update if explicitly disabled
+    if [ "$RESPALDO_NO_AUTO_UPDATE" = "1" ]; then
+        return 0
+    fi
+
+    # Get absolute path of script
+    script_path="$0"
+    if [ "${script_path#/}" = "$script_path" ]; then
+        # Relative path, make it absolute
+        script_path="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+    fi
+
+    # Check current version
+    current_version=""
+    if [ -f "$VERSION_FILE" ]; then
+        current_version=$(cat "$VERSION_FILE" 2>/dev/null | head -1)
+    fi
+
+    # Get latest version from server
+    version_response=$(curl -s -w "\n%{http_code}" \
+        -H "Authorization: Bearer $TOKEN" \
+        -H "User-Agent: $USER_AGENT" \
+        "$BASE_URL/api/script/version" 2>/dev/null)
+
+    version_http_code=$(echo "$version_response" | tail -n1)
+    version_body=$(echo "$version_response" | sed '$d')
+
+    # If version check fails, continue with current script (don't block execution)
+    if [ "$version_http_code" != "200" ]; then
+        return 0
+    fi
+
+    # Extract version from JSON response
+    latest_version=$(echo "$version_body" | grep -o '"version":"[^"]*"' | sed 's/"version":"\([^"]*\)"/\1/' | head -1)
+
+    if [ -z "$latest_version" ]; then
+        return 0
+    fi
+
+    # Compare versions
+    if [ "$current_version" = "$latest_version" ]; then
+        # Already up to date
+        return 0
+    fi
+
+    # Update available - download latest script
+    echo -e "${YELLOW}New script version available. Updating...${NC}"
+
+    # Download latest script to temporary file
+    temp_script=$(mktemp)
+    download_response=$(curl -s -w "\n%{http_code}" \
+        -H "Authorization: Bearer $TOKEN" \
+        -H "User-Agent: $USER_AGENT" \
+        -o "$temp_script" \
+        "$BASE_URL/api/script/download" 2>/dev/null)
+
+    download_http_code=$(echo "$download_response" | tail -n1)
+
+    if [ "$download_http_code" != "200" ] || [ ! -s "$temp_script" ]; then
+        echo -e "${YELLOW}Warning: Could not download update. Continuing with current version.${NC}"
+        rm -f "$temp_script"
+        return 0
+    fi
+
+    # Preserve script permissions
+    script_perms=$(stat -f "%OLp" "$script_path" 2>/dev/null || stat -c "%a" "$script_path" 2>/dev/null || echo "755")
+    chmod "$script_perms" "$temp_script" 2>/dev/null || chmod +x "$temp_script"
+
+    # Atomically replace script
+    if mv "$temp_script" "$script_path" 2>/dev/null; then
+        # Save new version
+        echo "$latest_version" > "$VERSION_FILE" 2>/dev/null
+        echo -e "${GREEN}Script updated successfully!${NC}"
+        echo -e "${YELLOW}Re-running with updated script...${NC}"
+        echo ""
+        # Re-execute updated script with same arguments
+        exec "$script_path" "$@"
+    else
+        echo -e "${YELLOW}Warning: Could not replace script. Continuing with current version.${NC}"
+        rm -f "$temp_script"
+        return 0
+    fi
+}
 
 # Remove hardcoded credentials from script after first successful use (security)
 remove_hardcoded_credentials() {
@@ -568,6 +668,9 @@ download_backup() {
 
 # Main script
 main() {
+    # Auto-update check (before authentication to ensure we have latest features)
+    auto_update_script
+
     check_auth
 
     # Check if a directory was passed as argument (quick backup mode)
@@ -703,6 +806,12 @@ main() {
 main "$@"
 
 BASH;
+    }
+
+    public function generateScript(User $user, string $baseUrl): string
+    {
+        $token = $user->createToken('respaldo-cli')->plainTextToken;
+        $script = $this->getScriptTemplate();
 
         return str_replace(
             ['{{BASE_URL}}', '{{TOKEN}}'],
