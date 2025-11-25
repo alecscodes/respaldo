@@ -249,6 +249,15 @@ You can also manually trigger an update:
 php artisan git:update
 ```
 
+### 📋 Log Retention
+
+Pulse automatically cleans up old logs daily. Critical logs are kept for 365 days, while debug logs are kept for 7 days. Retention periods are configurable per log level via settings.
+
+```bash
+php artisan logs:cleanup              # Clean up old logs
+php artisan logs:cleanup --dry-run    # Preview what would be deleted
+```
+
 > 📋 Requires Git repository with configured remote.
 
 ---
@@ -265,6 +274,8 @@ Respaldo includes several helpful Artisan commands:
 | `php artisan backups:check-missed` | Check for missed backups and send alerts (runs automatically every hour) |
 | `php artisan backups:apply-retention` | Manually apply backup retention policies for all apps |
 | `php artisan backups:apply-retention --app=1` | Manually apply retention policy for a specific app |
+| `php artisan logs:cleanup` | Clean up old logs based on configurable retention periods (runs automatically daily) |
+| `php artisan logs:cleanup --dry-run` | Preview what logs would be deleted without actually deleting them |
 
 ---
 
