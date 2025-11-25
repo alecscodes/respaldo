@@ -88,14 +88,17 @@ test('index searches logs with regex when use_regex is true', function () {
 test('index filters logs by date range', function () {
     Log::factory()->create(['created_at' => now()->subDays(5)]);
     Log::factory()->create(['created_at' => now()->subDays(2)]);
-    Log::factory()->create(['created_at' => now()]);
+    Log::factory()->create(['created_at' => now()->subDays(10)]);
 
-    $response = $this->get('/logs?date_from='.now()->subDays(3)->format('Y-m-d').'&date_to='.now()->format('Y-m-d'));
+    $dateFrom = now()->subDays(3)->format('Y-m-d\TH:i');
+    $dateTo = now()->format('Y-m-d\TH:i');
+
+    $response = $this->get("/logs?date_from={$dateFrom}&date_to={$dateTo}");
 
     $response->assertSuccessful();
     $response->assertInertia(fn ($page) => $page
         ->component('Logs/Index')
-        ->has('logs.data', 2)
+        ->has('logs.data', 1)
     );
 });
 

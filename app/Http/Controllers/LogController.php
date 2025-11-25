@@ -21,8 +21,8 @@ class LogController extends Controller
             ->when($request->filled('level'), fn ($q) => $q->byLevel($request->input('level')))
             ->when($request->filled('user_id'), fn ($q) => $q->byUser($request->input('user_id')))
             ->when($request->filled('app_id'), fn ($q) => $q->byApp($request->input('app_id')))
-            ->when($request->filled('date_from'), fn ($q) => $q->where('created_at', '>=', Carbon::parse($request->input('date_from'))->startOfDay()))
-            ->when($request->filled('date_to'), fn ($q) => $q->where('created_at', '<=', Carbon::parse($request->input('date_to'))->endOfDay()))
+            ->when($request->filled('date_from'), fn ($q) => $q->where('created_at', '>=', Carbon::parse($request->input('date_from'))))
+            ->when($request->filled('date_to'), fn ($q) => $q->where('created_at', '<=', Carbon::parse($request->input('date_to'))))
             ->when($request->filled('search'), fn ($q) => $q->search(
                 $request->input('search'),
                 $request->boolean('use_regex')
@@ -77,8 +77,8 @@ class LogController extends Controller
             ->when($request->filled('level'), fn ($q) => $q->byLevel($request->input('level')))
             ->when($request->filled('user_id'), fn ($q) => $q->byUser($request->input('user_id')))
             ->when($request->filled('app_id'), fn ($q) => $q->byApp($request->input('app_id')))
-            ->when($request->filled('date_from'), fn ($q) => $q->where('created_at', '>=', Carbon::parse($request->input('date_from'))->startOfDay()))
-            ->when($request->filled('date_to'), fn ($q) => $q->where('created_at', '<=', Carbon::parse($request->input('date_to'))->endOfDay()))
+            ->when($request->filled('date_from'), fn ($q) => $q->where('created_at', '>=', Carbon::parse($request->input('date_from'))))
+            ->when($request->filled('date_to'), fn ($q) => $q->where('created_at', '<=', Carbon::parse($request->input('date_to'))))
             ->when($request->filled('search'), fn ($q) => $q->search(
                 $request->input('search'),
                 $request->boolean('use_regex')

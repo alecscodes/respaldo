@@ -96,8 +96,25 @@ const selectedApp = ref(
 const selectedUser = ref(
     props.filters?.user_id ? String(props.filters.user_id) : '',
 );
-const dateFrom = ref(props.filters?.date_from || '');
-const dateTo = ref(props.filters?.date_to || '');
+const convertToDatetimeLocal = (dateString: string): string => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const pad = (n: number): string => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const convertToISO = (datetimeLocal: string): string => {
+    return datetimeLocal ? new Date(datetimeLocal).toISOString() : '';
+};
+
+const dateFrom = ref(
+    props.filters?.date_from
+        ? convertToDatetimeLocal(props.filters.date_from)
+        : '',
+);
+const dateTo = ref(
+    props.filters?.date_to ? convertToDatetimeLocal(props.filters.date_to) : '',
+);
 const showFilters = ref(false);
 const showDeleteDialog = ref(false);
 
@@ -174,11 +191,11 @@ const applyFilters = (): void => {
     }
 
     if (dateFrom.value) {
-        params.date_from = dateFrom.value;
+        params.date_from = convertToISO(dateFrom.value);
     }
 
     if (dateTo.value) {
-        params.date_to = dateTo.value;
+        params.date_to = convertToISO(dateTo.value);
     }
 
     router.get('/logs', params, {
@@ -245,11 +262,11 @@ const getFilterParams = (): Record<string, string | number | boolean> => {
     }
 
     if (dateFrom.value) {
-        params.date_from = dateFrom.value;
+        params.date_from = convertToISO(dateFrom.value);
     }
 
     if (dateTo.value) {
-        params.date_to = dateTo.value;
+        params.date_to = convertToISO(dateTo.value);
     }
 
     return params;
@@ -459,7 +476,7 @@ watch([searchQuery], () => {
                                 <input
                                     v-model="dateFrom"
                                     @change="applyFilters"
-                                    type="date"
+                                    type="datetime-local"
                                     class="w-full rounded-lg border border-sidebar-border/50 bg-sidebar-foreground/5 px-3 py-2 text-sm text-sidebar-foreground focus:border-sidebar-border focus:ring-2 focus:ring-sidebar-border/20 focus:outline-none"
                                 />
                             </div>
@@ -473,7 +490,7 @@ watch([searchQuery], () => {
                                 <input
                                     v-model="dateTo"
                                     @change="applyFilters"
-                                    type="date"
+                                    type="datetime-local"
                                     class="w-full rounded-lg border border-sidebar-border/50 bg-sidebar-foreground/5 px-3 py-2 text-sm text-sidebar-foreground focus:border-sidebar-border focus:ring-2 focus:ring-sidebar-border/20 focus:outline-none"
                                 />
                             </div>
