@@ -41,7 +41,7 @@ return [
             },
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
-            'busy_timeout' => null,
+            'busy_timeout' => 30000, // 30 seconds - prevents database locked errors
             'journal_mode' => null,
             'synchronous' => null,
             'transaction_mode' => 'DEFERRED',

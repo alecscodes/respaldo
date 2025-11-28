@@ -492,12 +492,12 @@ create_backup() {
         return 1
     fi
 
-    # Upload chunks in parallel for better performance (reduced to prevent server overload)
-    max_parallel=3
+    # Upload chunks in parallel for better performance (reduced to prevent database locks)
+    max_parallel=2
     if [ $total_chunks -lt 10 ]; then
-        max_parallel=2
+        max_parallel=1
     elif [ $total_chunks -ge 50 ]; then
-        max_parallel=4
+        max_parallel=3
     fi
 
     # Function to upload a single chunk

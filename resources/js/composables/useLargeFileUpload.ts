@@ -12,7 +12,7 @@ interface UploadOptions {
 }
 
 const DEFAULT_CHUNK_SIZE = 50 * 1024 * 1024; // 50MB
-const DEFAULT_MAX_CONCURRENCY = 3; // Upload 3 chunks in parallel
+const DEFAULT_MAX_CONCURRENCY = 2; // Upload 2 chunks in parallel (reduced to prevent database locks)
 const DEFAULT_MAX_RETRIES = 3;
 
 export function useLargeFileUpload() {

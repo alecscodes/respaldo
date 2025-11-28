@@ -197,21 +197,23 @@ class BackupController extends Controller
             // Store chunk file first (outside transaction to minimize lock time)
             $this->backupService->storeChunk($chunkUpload, $request->file('chunk'), $chunkIndex);
 
-            // Update database with pessimistic locking to prevent concurrent updates
-            DB::transaction(function () use ($chunkUpload, $chunkIndex) {
-                $chunkUpload = ChunkUpload::where('id', $chunkUpload->id)
-                    ->lockForUpdate()
-                    ->firstOrFail();
+            // Update database with pessimistic locking and retry on deadlocks
+            retry(3, function () use ($chunkUpload, $chunkIndex) {
+                DB::transaction(function () use ($chunkUpload, $chunkIndex) {
+                    $chunkUpload = ChunkUpload::where('id', $chunkUpload->id)
+                        ->lockForUpdate()
+                        ->firstOrFail();
 
-                if ($chunkUpload->status !== 'in_progress') {
-                    throw new \RuntimeException('Upload session is not in progress.');
-                }
+                    if ($chunkUpload->status !== 'in_progress') {
+                        throw new \RuntimeException('Upload session is not in progress.');
+                    }
 
-                if (! $chunkUpload->hasChunk($chunkIndex)) {
-                    $chunkUpload->markChunkUploaded($chunkIndex);
-                    $chunkUpload->save();
-                }
-            });
+                    if (! $chunkUpload->hasChunk($chunkIndex)) {
+                        $chunkUpload->markChunkUploaded($chunkIndex);
+                        $chunkUpload->save();
+                    }
+                }, 10);
+            }, 100); // 100ms delay between retries
 
             $chunkUpload->refresh();
 
