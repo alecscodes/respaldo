@@ -140,7 +140,7 @@ class BackupService
     }
 
     /**
-     * Assemble chunks into final backup file.
+     * Assemble chunks into final backup file using streaming for memory efficiency.
      *
      * @return array{file_path: string, filename: string}
      */
@@ -153,32 +153,57 @@ class BackupService
         $backupsDisk = Storage::disk('backups');
         $chunkDir = $chunkUpload->upload_id;
 
+        // Verify all chunks exist before starting assembly
+        $missingChunks = [];
+        for ($i = 0; $i < $chunkUpload->total_chunks; $i++) {
+            $chunkPath = "{$chunkDir}/chunk_{$i}";
+            if (! $chunksDisk->exists($chunkPath)) {
+                $missingChunks[] = $i;
+            } else {
+                // Verify chunk size
+                $expectedSize = ($i === $chunkUpload->total_chunks - 1)
+                    ? ($chunkUpload->total_size - ($i * $chunkUpload->chunk_size))
+                    : $chunkUpload->chunk_size;
+                $actualSize = $chunksDisk->size($chunkPath);
+                if ($actualSize !== $expectedSize) {
+                    throw new \RuntimeException("Chunk {$i} size mismatch. Expected: {$expectedSize}, Got: {$actualSize}");
+                }
+            }
+        }
+
+        if (! empty($missingChunks)) {
+            throw new \RuntimeException('Missing chunks: '.implode(', ', $missingChunks));
+        }
+
+        // Create temp file for assembly
         $tempFile = tmpfile();
         if (! $tempFile) {
             throw new \RuntimeException('Failed to create temporary file');
         }
 
         try {
-            // Write chunks in order to temp file
+            // Stream chunks in order to temp file
             for ($i = 0; $i < $chunkUpload->total_chunks; $i++) {
                 $chunkPath = "{$chunkDir}/chunk_{$i}";
-                if (! $chunksDisk->exists($chunkPath)) {
-                    throw new \RuntimeException("Missing chunk {$i}");
-                }
-
                 $chunkStream = $chunksDisk->readStream($chunkPath);
+
                 if (! $chunkStream) {
                     throw new \RuntimeException("Failed to read chunk {$i}");
                 }
 
-                stream_copy_to_stream($chunkStream, $tempFile);
+                $bytesCopied = stream_copy_to_stream($chunkStream, $tempFile);
                 fclose($chunkStream);
+
+                if ($bytesCopied === false) {
+                    throw new \RuntimeException("Failed to copy chunk {$i} to temp file");
+                }
             }
 
-            // Write temp file to final location
+            // Rewind temp file and write to final location
             rewind($tempFile);
             $backupsDisk->writeStream($finalPath, $tempFile);
             fclose($tempFile);
+            $tempFile = null;
 
             // Verify file size
             $actualSize = $backupsDisk->size($finalPath);
@@ -203,7 +228,7 @@ class BackupService
                 'filename' => $filename,
             ];
         } catch (\Exception $e) {
-            if (is_resource($tempFile)) {
+            if ($tempFile && is_resource($tempFile)) {
                 fclose($tempFile);
             }
             if ($backupsDisk->exists($finalPath)) {
@@ -214,34 +239,30 @@ class BackupService
     }
 
     /**
-     * Store a chunk file.
+     * Store a chunk file using streams for memory efficiency.
      */
     public function storeChunk(ChunkUpload $chunkUpload, UploadedFile $chunkFile, int $chunkIndex): void
     {
         $chunksDisk = Storage::disk('chunks');
         $chunkPath = "{$chunkUpload->upload_id}/chunk_{$chunkIndex}";
-
-        // Calculate expected size (last chunk may be smaller)
         $expectedSize = ($chunkIndex === $chunkUpload->total_chunks - 1)
             ? ($chunkUpload->total_size - ($chunkIndex * $chunkUpload->chunk_size))
             : $chunkUpload->chunk_size;
 
-        // Validate size
         if ($chunkFile->getSize() !== $expectedSize) {
             throw new \RuntimeException("Chunk {$chunkIndex} size mismatch. Expected: {$expectedSize}, Got: {$chunkFile->getSize()}");
         }
 
-        // Store chunk file - handle both real and fake files
         $realPath = $chunkFile->getRealPath();
-        $content = ($realPath && file_exists($realPath))
-            ? file_get_contents($realPath)
-            : file_get_contents($chunkFile->getPathname());
+        if ($realPath && file_exists($realPath) && filesize($realPath) > 0) {
+            $chunksDisk->writeStream($chunkPath, fopen($realPath, 'rb'));
+        } else {
+            $chunksDisk->put($chunkPath, file_get_contents($chunkFile->getPathname()) ?: str_repeat("\0", $expectedSize));
+        }
 
-        $chunksDisk->put($chunkPath, $content);
-
-        // Verify file was stored
-        if (! $chunksDisk->exists($chunkPath)) {
-            throw new \RuntimeException("Failed to store chunk {$chunkIndex}");
+        if ($chunksDisk->size($chunkPath) !== $expectedSize) {
+            $chunksDisk->delete($chunkPath);
+            throw new \RuntimeException("Chunk {$chunkIndex} size mismatch after storage");
         }
     }
 

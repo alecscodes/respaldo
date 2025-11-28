@@ -180,12 +180,11 @@ class BackupController extends Controller
         $this->authorizeApp($app);
 
         $chunkUpload = $this->findChunkUpload($request->string('upload_id')->toString(), $app);
+        $chunkIndex = $request->integer('chunk_index');
 
         if ($chunkUpload->status !== 'in_progress') {
             return response()->json(['error' => 'Upload session is not in progress.'], 400);
         }
-
-        $chunkIndex = $request->integer('chunk_index');
 
         if ($chunkUpload->hasChunk($chunkIndex)) {
             return response()->json([
@@ -195,16 +194,31 @@ class BackupController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($chunkUpload, $request, $chunkIndex) {
-                $this->backupService->storeChunk($chunkUpload, $request->file('chunk'), $chunkIndex);
-                $chunkUpload->markChunkUploaded($chunkIndex);
-                $chunkUpload->save();
+            // Store chunk file first (outside transaction to minimize lock time)
+            $this->backupService->storeChunk($chunkUpload, $request->file('chunk'), $chunkIndex);
+
+            // Update database with pessimistic locking to prevent concurrent updates
+            DB::transaction(function () use ($chunkUpload, $chunkIndex) {
+                $chunkUpload = ChunkUpload::where('id', $chunkUpload->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($chunkUpload->status !== 'in_progress') {
+                    throw new \RuntimeException('Upload session is not in progress.');
+                }
+
+                if (! $chunkUpload->hasChunk($chunkIndex)) {
+                    $chunkUpload->markChunkUploaded($chunkIndex);
+                    $chunkUpload->save();
+                }
             });
+
+            $chunkUpload->refresh();
 
             return response()->json([
                 'message' => 'Chunk uploaded successfully.',
                 'progress' => $chunkUpload->getProgressPercentage(),
-                'uploaded_chunks' => count($chunkUpload->uploaded_chunks),
+                'uploaded_chunks' => count($chunkUpload->uploaded_chunks ?? []),
                 'total_chunks' => $chunkUpload->total_chunks,
             ]);
         } catch (\Exception $e) {
@@ -226,6 +240,32 @@ class BackupController extends Controller
 
         if ($chunkUpload->status !== 'in_progress') {
             return response()->json(['error' => 'Upload session is not in progress.'], 400);
+        }
+
+        // Refresh to ensure we have latest state
+        $chunkUpload->refresh();
+
+        // Verify chunks exist on disk, not just in database
+        $chunksDisk = Storage::disk('chunks');
+        $chunkDir = $chunkUpload->upload_id;
+        $missingChunks = [];
+
+        for ($i = 0; $i < $chunkUpload->total_chunks; $i++) {
+            $chunkPath = "{$chunkDir}/chunk_{$i}";
+            if (! $chunksDisk->exists($chunkPath)) {
+                $missingChunks[] = $i;
+            }
+        }
+
+        if (! empty($missingChunks)) {
+            // Update database to reflect actual state
+            $uploadedChunks = array_values(array_diff(range(0, $chunkUpload->total_chunks - 1), $missingChunks));
+            $chunkUpload->update(['uploaded_chunks' => $uploadedChunks]);
+
+            return response()->json([
+                'error' => 'Not all chunks have been uploaded.',
+                'missing_chunks' => $missingChunks,
+            ], 400);
         }
 
         if (! $chunkUpload->isComplete()) {

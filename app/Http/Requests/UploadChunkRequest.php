@@ -16,7 +16,7 @@ class UploadChunkRequest extends FormRequest
         return [
             'upload_id' => ['required', 'string', 'size:32'],
             'chunk_index' => ['required', 'integer', 'min:0'],
-            'chunk' => ['required', 'file', 'max:104857600'], // Max 100MB per chunk
+            'chunk' => ['required', 'file', 'max:104857600'],
         ];
     }
 

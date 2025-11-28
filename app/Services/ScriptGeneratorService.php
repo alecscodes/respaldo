@@ -446,13 +446,15 @@ create_backup() {
     echo -e "${YELLOW}Uploading backup (size: ${size_mb}MB)...${NC}"
 
     # Use larger chunks for larger files to reduce overhead
-    # < 100MB: 10MB chunks, < 1GB: 25MB chunks, >= 1GB: 50MB chunks
+    # < 100MB: 10MB chunks, < 1GB: 25MB chunks, < 10GB: 50MB chunks, >= 10GB: 100MB chunks
     if [ $file_size -lt $((100 * 1024 * 1024)) ]; then
         chunk_size=$((10 * 1024 * 1024))
     elif [ $file_size -lt $((1024 * 1024 * 1024)) ]; then
         chunk_size=$((25 * 1024 * 1024))
-    else
+    elif [ $file_size -lt $((10 * 1024 * 1024 * 1024)) ]; then
         chunk_size=$((50 * 1024 * 1024))
+    else
+        chunk_size=$((100 * 1024 * 1024))
     fi
     filename=$(basename "$backup_file")
 
@@ -484,73 +486,129 @@ create_backup() {
         return 1
     fi
 
-    # Upload chunks with optimized extraction
-    chunk_index=0
-    last_progress=0
-    while [ $chunk_index -lt $total_chunks ]; do
-        start=$((chunk_index * chunk_size))
-        chunk_length=$((start + chunk_size > file_size ? file_size - start : chunk_size))
+    # Upload chunks in parallel for better performance (reduced to prevent server overload)
+    max_parallel=3
+    if [ $total_chunks -lt 10 ]; then
+        max_parallel=2
+    elif [ $total_chunks -ge 50 ]; then
+        max_parallel=4
+    fi
 
-        chunk_temp=$(mktemp)
-        # Use optimized block size for better performance
-        # For chunks > 1MB, use 1MB blocks; otherwise use bs=1
-        if [ $chunk_length -gt $((1024 * 1024)) ]; then
+    # Function to upload a single chunk
+    upload_single_chunk() {
+        local idx=$1
+        local start=$((idx * chunk_size))
+        local length=$((start + chunk_size > file_size ? file_size - start : chunk_size))
+        local chunk_temp=$(mktemp)
+        local max_retries=3
+        local retry_count=0
+
+        # Extract chunk using optimized dd
+        if [ $length -gt $((1024 * 1024)) ]; then
             block_size=$((1024 * 1024))
-            blocks=$((chunk_length / block_size))
-            remainder=$((chunk_length % block_size))
             skip_blocks=$((start / block_size))
-
+            blocks=$((length / block_size))
+            remainder=$((length % block_size))
+            
             if [ $blocks -gt 0 ]; then
                 dd if="$backup_file" of="$chunk_temp" bs=$block_size skip=$skip_blocks count=$blocks 2>/dev/null || {
-                    echo -e "${RED}Error extracting chunk $chunk_index${NC}"
-                    rm -f "$chunk_temp" "$backup_file" "$exclude_file"
+                    rm -f "$chunk_temp"
                     return 1
                 }
             fi
-
+            
             if [ $remainder -gt 0 ]; then
                 dd if="$backup_file" of="$chunk_temp" bs=1 skip=$((start + blocks * block_size)) count=$remainder seek=$((blocks * block_size)) 2>/dev/null || {
-                    echo -e "${RED}Error extracting chunk $chunk_index${NC}"
-                    rm -f "$chunk_temp" "$backup_file" "$exclude_file"
+                    rm -f "$chunk_temp"
                     return 1
                 }
             fi
         else
-            # Small chunk, use bs=1
-            dd if="$backup_file" of="$chunk_temp" bs=1 skip=$start count=$chunk_length 2>/dev/null || {
-                echo -e "${RED}Error extracting chunk $chunk_index${NC}"
-                rm -f "$chunk_temp" "$backup_file" "$exclude_file"
+            dd if="$backup_file" of="$chunk_temp" bs=1 skip=$start count=$length 2>/dev/null || {
+                rm -f "$chunk_temp"
                 return 1
             }
         fi
 
-        chunk_http_code=$(curl -s -X POST \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "User-Agent: $USER_AGENT" \
-            -F "upload_id=$upload_id" \
-            -F "chunk_index=$chunk_index" \
-            -F "chunk=@$chunk_temp" \
-            -w "%{http_code}" \
-            -o /dev/null \
-            "$BASE_URL/api/apps/$app_id/backups/chunked/upload")
+        # Upload chunk with retry logic
+        while [ $retry_count -le $max_retries ]; do
+            chunk_http_code=$(curl -s -X POST \
+                -H "Authorization: Bearer $TOKEN" \
+                -H "User-Agent: $USER_AGENT" \
+                -F "upload_id=$upload_id" \
+                -F "chunk_index=$idx" \
+                -F "chunk=@$chunk_temp" \
+                -w "%{http_code}" \
+                -o /dev/null \
+                --connect-timeout 30 \
+                --max-time 300 \
+                "$BASE_URL/api/apps/$app_id/backups/chunked/upload" 2>/dev/null)
+
+            if [ "$chunk_http_code" = "200" ]; then
+                rm -f "$chunk_temp"
+                return 0
+            fi
+            
+            retry_count=$((retry_count + 1))
+            if [ $retry_count -le $max_retries ]; then
+                sleep $((retry_count * 2))
+            fi
+        done
 
         rm -f "$chunk_temp"
+        return 1
+    }
 
-        if [ "$chunk_http_code" != "200" ]; then
-            echo -e "${RED}Error uploading chunk $chunk_index: HTTP $chunk_http_code${NC}"
-            rm -f "$backup_file" "$exclude_file"
-            return 1
+    # Upload chunks in parallel
+    chunk_index=0
+    uploaded_count=0
+    failed_chunks=0
+    last_progress=0
+    pids=()
+
+    while [ $chunk_index -lt $total_chunks ] || [ ${#pids[@]} -gt 0 ]; do
+        # Start new uploads up to max_parallel
+        while [ ${#pids[@]} -lt $max_parallel ] && [ $chunk_index -lt $total_chunks ]; do
+            upload_single_chunk $chunk_index &
+            pids+=($!)
+            chunk_index=$((chunk_index + 1))
+        done
+
+        # Check for completed uploads
+        new_pids=()
+        for pid in "${pids[@]}"; do
+            if kill -0 "$pid" 2>/dev/null; then
+                new_pids+=($pid)
+            else
+                wait "$pid"
+                if [ $? -eq 0 ]; then
+                    uploaded_count=$((uploaded_count + 1))
+                else
+                    failed_chunks=$((failed_chunks + 1))
+                fi
+            fi
+        done
+        pids=("${new_pids[@]}")
+
+        # Update progress
+        if [ $total_chunks -gt 0 ]; then
+            progress=$((uploaded_count * 100 / total_chunks))
+            if [ $((progress - last_progress)) -ge 5 ] || [ $uploaded_count -eq $total_chunks ]; then
+                echo -ne "\r${YELLOW}Progress: ${progress}% (${uploaded_count}/${total_chunks} chunks uploaded)${NC}"
+                last_progress=$progress
+            fi
         fi
 
-        # Update progress every 5% or every 10 chunks, whichever comes first
-        progress=$(( (chunk_index + 1) * 100 / total_chunks ))
-        if [ $((progress - last_progress)) -ge 5 ] || [ $((chunk_index % 10)) -eq 9 ] || [ $chunk_index -eq $((total_chunks - 1)) ]; then
-            echo -ne "\r${YELLOW}Progress: ${progress}% (chunk $((chunk_index + 1))/$total_chunks)${NC}"
-            last_progress=$progress
-        fi
-        chunk_index=$((chunk_index + 1))
+        sleep 0.1
     done
+
     echo ""
+
+    if [ $failed_chunks -gt 0 ]; then
+        echo -e "${RED}Error: Failed to upload $failed_chunks chunk(s)${NC}"
+        rm -f "$backup_file" "$exclude_file"
+        return 1
+    fi
 
     # Finalize
     finalize_body=$(curl -s -X POST \

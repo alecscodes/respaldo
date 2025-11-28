@@ -56,9 +56,8 @@ test('generated script includes error handling', function () {
 
     // Check for error handling in chunked upload
     expect($script)->toContain('Error initializing upload');
-    expect($script)->toContain('Error uploading chunk');
+    expect($script)->toContain('Error: Failed to upload');
     expect($script)->toContain('Error finalizing upload');
-    expect($script)->toContain('Error extracting chunk');
 });
 
 test('generated script includes chunk extraction logic', function () {
@@ -68,9 +67,10 @@ test('generated script includes chunk extraction logic', function () {
 
     // Check for dd command to extract chunks
     expect($script)->toContain('dd if=');
-    expect($script)->toContain('bs=1 skip=');
+    expect($script)->toContain('bs=');
+    expect($script)->toContain('skip=');
     expect($script)->toContain('count=');
-    expect($script)->toContain('chunk_length');
+    expect($script)->toContain('length=');
 });
 
 test('generated script includes progress calculation', function () {
@@ -79,8 +79,8 @@ test('generated script includes progress calculation', function () {
     $script = $service->generateScript($user, 'https://example.com');
 
     // Check for progress calculation
-    expect($script)->toContain('progress=$(( (chunk_index + 1) * 100 / total_chunks ))');
-    expect($script)->toContain('echo -ne');
+    expect($script)->toContain('progress=$((uploaded_count * 100 / total_chunks))');
+    expect($script)->toContain('Progress:');
 });
 
 test('generated script handles chunk size calculation correctly', function () {
@@ -89,7 +89,7 @@ test('generated script handles chunk size calculation correctly', function () {
     $script = $service->generateScript($user, 'https://example.com');
 
     // Check for proper chunk length calculation (handles last chunk)
-    expect($script)->toContain('chunk_length=$((start + chunk_size > file_size ? file_size - start : chunk_size))');
+    expect($script)->toContain('length=$((start + chunk_size > file_size ? file_size - start : chunk_size))');
 });
 
 test('generated script includes cleanup logic', function () {
@@ -100,4 +100,12 @@ test('generated script includes cleanup logic', function () {
     // Check for cleanup of temporary files
     expect($script)->toContain('rm -f "$chunk_temp"');
     expect($script)->toContain('rm -f "$backup_file" "$exclude_file"');
+});
+
+test('generated script re-executes with original arguments after update', function () {
+    $user = User::factory()->create();
+    $service = new ScriptGeneratorService;
+    $script = $service->generateScript($user, 'https://example.com');
+
+    expect($script)->toContain('auto_update_script "$@"');
 });
