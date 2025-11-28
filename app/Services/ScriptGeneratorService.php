@@ -107,6 +107,7 @@ if [ -z "$TOKEN" ]; then
 fi
 
 # Auto-update script before running
+# Accepts script arguments to preserve them after update
 auto_update_script() {
     # Skip auto-update if explicitly disabled
     if [ "$RESPALDO_NO_AUTO_UPDATE" = "1" ]; then
@@ -119,6 +120,10 @@ auto_update_script() {
         # Relative path, make it absolute
         script_path="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
     fi
+
+    # Store script arguments for re-execution after update
+    # "$@" here refers to function arguments passed from main()
+    script_args=("$@")
 
     # Check current version
     current_version=""
@@ -183,8 +188,9 @@ auto_update_script() {
         echo -e "${GREEN}Script updated successfully!${NC}"
         echo -e "${YELLOW}Re-running with updated script...${NC}"
         echo ""
-        # Re-execute updated script with same arguments
-        exec "$script_path" "$@"
+        # Re-execute updated script with same arguments (preserve original operation)
+        # This ensures cron jobs continue with backup instead of showing menu
+        exec "$script_path" "${script_args[@]}"
     else
         echo -e "${YELLOW}Warning: Could not replace script. Continuing with current version.${NC}"
         rm -f "$temp_script"
@@ -727,11 +733,14 @@ download_backup() {
 # Main script
 main() {
     # Auto-update check (before authentication to ensure we have latest features)
-    auto_update_script
+    # Pass script arguments so they're preserved when script is re-executed after update
+    # This ensures cron jobs continue with backup instead of showing menu
+    auto_update_script "$@"
 
     check_auth
 
     # Check if a directory was passed as argument (quick backup mode)
+    # This handles both initial calls and re-execution after update
     if [ -n "$1" ]; then
         backup_dir="$1"
 
