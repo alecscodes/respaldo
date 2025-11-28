@@ -240,6 +240,7 @@ class BackupService
 
     /**
      * Store a chunk file using streams for memory efficiency.
+     * Ensures file is fully written and verified before returning.
      */
     public function storeChunk(ChunkUpload $chunkUpload, UploadedFile $chunkFile, int $chunkIndex): void
     {
@@ -253,16 +254,28 @@ class BackupService
             throw new \RuntimeException("Chunk {$chunkIndex} size mismatch. Expected: {$expectedSize}, Got: {$chunkFile->getSize()}");
         }
 
+        // Write chunk file
         $realPath = $chunkFile->getRealPath();
         if ($realPath && file_exists($realPath) && filesize($realPath) > 0) {
-            $chunksDisk->writeStream($chunkPath, fopen($realPath, 'rb'));
+            $stream = fopen($realPath, 'rb');
+            $chunksDisk->writeStream($chunkPath, $stream);
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
         } else {
             $chunksDisk->put($chunkPath, file_get_contents($chunkFile->getPathname()) ?: str_repeat("\0", $expectedSize));
         }
 
-        if ($chunksDisk->size($chunkPath) !== $expectedSize) {
+        // Verify file exists and has correct size (with retry for file system delays)
+        try {
+            retry(5, function () use ($chunksDisk, $chunkPath, $expectedSize) {
+                if (! $chunksDisk->exists($chunkPath) || $chunksDisk->size($chunkPath) !== $expectedSize) {
+                    throw new \RuntimeException('File verification failed');
+                }
+            }, 100);
+        } catch (\Exception $e) {
             $chunksDisk->delete($chunkPath);
-            throw new \RuntimeException("Chunk {$chunkIndex} size mismatch after storage");
+            throw new \RuntimeException("Chunk {$chunkIndex} verification failed after storage");
         }
     }
 
