@@ -33,14 +33,13 @@ class GitUpdateCommand extends Command
 
         if ($result['success']) {
             $updated = $result['updated'] ?? false;
-            Log::channel('database')->info(
-                $updated ? 'Git update performed' : 'Git update check - up to date',
-                [
+            if ($updated) {
+                Log::channel('database')->info('Git update performed', [
                     'category' => 'system',
                     'message' => $result['message'],
-                    'action' => $updated ? 'update' : 'check',
-                ]
-            );
+                    'action' => 'update',
+                ]);
+            }
 
             $this->info('✓ '.$result['message']);
 
