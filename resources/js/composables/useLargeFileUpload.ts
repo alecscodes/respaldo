@@ -11,7 +11,7 @@ interface UploadOptions {
     onProgress?: (percentage: number) => void;
 }
 
-const DEFAULT_CHUNK_SIZE = 50 * 1024 * 1024; // 50MB
+const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024; // 5MB default chunk size for better stability behind proxies/CDNs
 const DEFAULT_MAX_CONCURRENCY = 2; // Upload 2 chunks in parallel (reduced to prevent database locks)
 const DEFAULT_MAX_RETRIES = 3;
 
@@ -65,7 +65,10 @@ export function useLargeFileUpload() {
 
                 // Create timeout abort controller
                 const timeoutController = new AbortController();
-                const timeoutId = setTimeout(() => timeoutController.abort(), 300000); // 5 minutes
+                const timeoutId = setTimeout(
+                    () => timeoutController.abort(),
+                    300000,
+                ); // 5 minutes
 
                 // Use timeout signal, but check main signal too
                 if (signal.aborted) {
