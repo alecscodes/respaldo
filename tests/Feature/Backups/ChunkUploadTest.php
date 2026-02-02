@@ -84,10 +84,10 @@ test('chunk upload initialization validates file size limits', function () {
     $app = App::factory()->create(['user_id' => $user->id]);
     $this->actingAs($user);
 
-    // Test max file size (2TB)
+    // Test max file size (10TB)
     $response = $this->postJson(route('backups.chunked.init', $app), [
         'filename' => 'test.tar.gz',
-        'total_size' => 3 * 1024 * 1024 * 1024 * 1024, // 3TB
+        'total_size' => 11 * 1024 * 1024 * 1024 * 1024, // 11TB
         'chunk_size' => 10 * 1024 * 1024,
     ]);
 

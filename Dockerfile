@@ -17,9 +17,12 @@ RUN npm install -g npm@latest
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
+# Copy PHP configuration
+COPY php.ini /usr/local/etc/php/conf.d/uploads.ini
+
 # Copy entrypoints
 COPY docker/entrypoint.sh docker/scheduler-entrypoint.sh docker/web-entrypoint.sh /
-RUN chmod +x /entrypoint.sh /scheduler-entrypoint.sh /web-entrypoint.sh   
+RUN chmod +x /entrypoint.sh /scheduler-entrypoint.sh /web-entrypoint.sh
 
 # Copy dependency files first
 COPY composer.json composer.lock ./

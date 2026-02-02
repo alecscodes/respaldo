@@ -175,14 +175,23 @@ class BackupService
             throw new \RuntimeException('Missing chunks: '.implode(', ', $missingChunks));
         }
 
-        // Create temp file for assembly
-        $tempFile = tmpfile();
-        if (! $tempFile) {
-            throw new \RuntimeException('Failed to create temporary file');
+        // Stream chunks directly into the final backup file to avoid extra disk I/O
+        $finalPathOnDisk = $backupsDisk->path($finalPath);
+
+        $finalDir = dirname($finalPathOnDisk);
+        if (! is_dir($finalDir)) {
+            if (! @mkdir($finalDir, 0755, true) && ! is_dir($finalDir)) {
+                throw new \RuntimeException("Failed to create backup directory: {$finalDir}");
+            }
+        }
+
+        $finalStream = fopen($finalPathOnDisk, 'wb');
+        if ($finalStream === false) {
+            throw new \RuntimeException("Failed to open final backup file for writing: {$finalPathOnDisk}");
         }
 
         try {
-            // Stream chunks in order to temp file
+            // Stream chunks in order directly to the final file
             for ($i = 0; $i < $chunkUpload->total_chunks; $i++) {
                 $chunkPath = "{$chunkDir}/chunk_{$i}";
                 $chunkStream = $chunksDisk->readStream($chunkPath);
@@ -191,19 +200,15 @@ class BackupService
                     throw new \RuntimeException("Failed to read chunk {$i}");
                 }
 
-                $bytesCopied = stream_copy_to_stream($chunkStream, $tempFile);
+                $bytesCopied = stream_copy_to_stream($chunkStream, $finalStream);
                 fclose($chunkStream);
 
                 if ($bytesCopied === false) {
-                    throw new \RuntimeException("Failed to copy chunk {$i} to temp file");
+                    throw new \RuntimeException("Failed to copy chunk {$i} to final file");
                 }
             }
 
-            // Rewind temp file and write to final location
-            rewind($tempFile);
-            $backupsDisk->writeStream($finalPath, $tempFile);
-            fclose($tempFile);
-            $tempFile = null;
+            fclose($finalStream);
 
             // Verify file size
             $actualSize = $backupsDisk->size($finalPath);
@@ -228,8 +233,8 @@ class BackupService
                 'filename' => $filename,
             ];
         } catch (\Exception $e) {
-            if ($tempFile && is_resource($tempFile)) {
-                fclose($tempFile);
+            if (is_resource($finalStream)) {
+                fclose($finalStream);
             }
             if ($backupsDisk->exists($finalPath)) {
                 $backupsDisk->delete($finalPath);
