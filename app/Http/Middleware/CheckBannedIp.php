@@ -3,24 +3,24 @@
 namespace App\Http\Middleware;
 
 use App\Services\IpBanService;
-use App\Services\LogService;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class CheckBannedIp
 {
     public function __construct(
-        private IpBanService $ipBanService,
-        private LogService $logService
+        private IpBanService $ipBanService
     ) {}
 
     public function handle(Request $request, Closure $next): Response
     {
         if ($this->ipBanService->isBanned($request)) {
-            $this->logService->warning('security', 'Banned IP access attempt', [
+            Log::channel('database')->warning('Banned IP access attempt', [
+                'category' => 'security',
+                'ip' => $request->ip(),
                 'path' => $request->path(),
-                'method' => $request->method(),
             ]);
             abort(403, 'Access denied');
         }

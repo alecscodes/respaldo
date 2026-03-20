@@ -14,7 +14,6 @@ use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Middleware\ValidatePostSize;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -27,10 +26,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
-        // Remove ValidatePostSize middleware to allow unlimited uploads
         $middleware->remove(ValidatePostSize::class);
 
-        // Block bots and crawlers first
         $middleware->web(prepend: [
             BlockBots::class,
             AllowLargeUploads::class,
@@ -51,60 +48,52 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Ensure API requests return JSON errors
-        $exceptions->renderable(function (Throwable $e, Request $request) {
-            if ($request->is('api/*')) {
-                $statusCode = $e instanceof HttpException ? $e->getStatusCode() : 500;
-
-                $level = $statusCode >= 500 ? 'error' : 'warning';
-                Log::channel('database')->{$level}('API exception', [
-                    'category' => 'api',
-                    'exception' => class_basename($e),
-                    'message' => $e->getMessage(),
-                    'status_code' => $statusCode,
-                    'path' => $request->path(),
-                ]);
-
-                return response()->json([
-                    'error' => class_basename($e),
-                    'message' => $e->getMessage(),
-                ], $statusCode);
-            }
-        });
-
-        $exceptions->render(function (HttpException $e, Request $request) {
+        $exceptions->render(function (Throwable $e, Request $request) {
             $service = app(IpBanService::class);
 
-            // If IP is banned, always return 403, even for 404 errors
+            // If IP is already banned, return 403 immediately
             if ($service->isBanned($request)) {
                 return response('Access denied', 403);
             }
 
             $path = $request->path();
 
+            // Handle storage paths - ban if file doesn't exist
             if (str_starts_with($path, 'storage/')) {
                 $filePath = storage_path('app/public/'.ltrim(substr($path, 8), '/'));
-                if (! file_exists($filePath) && $service->shouldBanPath($path)) {
+
+                if (! file_exists($filePath)) {
                     Log::channel('database')->warning('Suspicious path access attempt', [
                         'category' => 'security',
                         'path' => $path,
-                        'type' => 'non-existent storage file',
                     ]);
-                    $service->ban($request, 'Non-existent storage file: '.$path);
+
+                    $service->ban($request, "Non-existent storage file: {$path}");
 
                     return response('Access denied', 403);
                 }
-            } elseif ($e instanceof NotFoundHttpException && ! $request->route() && $service->shouldBanPath($path)) {
-                Log::channel('database')->warning('Suspicious route access attempt', [
-                    'category' => 'security',
-                    'path' => $path,
-                    'type' => 'non-existent route',
-                ]);
-                $service->ban($request, 'Non-existent route: '.$path);
 
-                return response('Access denied', 403);
+                // File exists - let normal 404 handling proceed
+                return null;
             }
 
-            return null;
+            // Handle non-storage paths - only process 404 exceptions
+            if (! ($e instanceof NotFoundHttpException)) {
+                return null;
+            }
+
+            // Check if path should be banned
+            if (! $service->shouldBanPath($path)) {
+                return null;
+            }
+
+            Log::channel('database')->warning('Suspicious path access attempt', [
+                'category' => 'security',
+                'path' => $path,
+            ]);
+
+            $service->ban($request, "Non-existent route: {$path}");
+
+            return response('Access denied', 403);
         });
     })->create();

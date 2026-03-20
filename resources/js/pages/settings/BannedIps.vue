@@ -95,7 +95,7 @@ function formatDate(dateString: string): string {
                                             <Badge
                                                 v-if="bannedIp.reason"
                                                 variant="secondary"
-                                                class="max-w-full text-xs wrap-break-word"
+                                                class="max-w-full text-xs whitespace-normal"
                                             >
                                                 {{ bannedIp.reason }}
                                             </Badge>
