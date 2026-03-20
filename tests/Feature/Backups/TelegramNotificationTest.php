@@ -3,6 +3,7 @@
 use App\Models\App;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\DiskSpaceService;
 use App\Services\StorageConverter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
@@ -68,7 +69,7 @@ test('sends Telegram notification when backup fails to store', function () {
     $file = UploadedFile::fake()->create('backup.tar.gz', 100); // Small file
 
     // Mock DiskSpaceService to simulate disk space check failure
-    $diskSpaceServiceMock = $this->mock(\App\Services\DiskSpaceService::class);
+    $diskSpaceServiceMock = $this->mock(DiskSpaceService::class);
     $diskSpaceServiceMock->shouldReceive('getBackupDiskSpace')
         ->times(3) // Called once initially, then after app cleanup, then after all-apps cleanup
         ->andReturn([
@@ -79,7 +80,7 @@ test('sends Telegram notification when backup fails to store', function () {
             'path' => '/backups',
         ]);
 
-    $this->app->instance(\App\Services\DiskSpaceService::class, $diskSpaceServiceMock);
+    $this->app->instance(DiskSpaceService::class, $diskSpaceServiceMock);
 
     $response = $this->post(route('backups.store', $app), [
         'file' => $file,
@@ -258,7 +259,7 @@ test('sends disk space warning when disk usage exceeds 90%', function () {
     $this->actingAs($user);
 
     // Mock DiskSpaceService to return high disk usage
-    $this->mock(\App\Services\DiskSpaceService::class, function ($mock) {
+    $this->mock(DiskSpaceService::class, function ($mock) {
         $mock->shouldReceive('getBackupDiskSpace')
             ->atLeast()->once() // May be called multiple times if retention cleanup runs
             ->andReturn([

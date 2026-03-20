@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\App;
 use App\Services\BackupRetentionService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 class ApplyBackupRetention extends Command
 {
@@ -49,7 +50,7 @@ class ApplyBackupRetention extends Command
 
         $result = $retentionService->applyRetentionForAllApps();
 
-        \Illuminate\Support\Facades\Log::channel('database')->info('Retention policy applied for all apps', [
+        Log::channel('database')->info('Retention policy applied for all apps', [
             'category' => 'retention',
             'total_deleted' => $result['total_deleted'],
             'total_freed_space' => $result['total_freed_space'],

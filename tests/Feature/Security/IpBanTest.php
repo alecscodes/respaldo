@@ -3,9 +3,11 @@
 use App\Http\Middleware\CheckBannedIp;
 use App\Models\User;
 use App\Services\IpBanService;
+use App\Services\LogService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function () {
     Cache::flush();
@@ -26,13 +28,13 @@ test('middleware blocks banned IPs', function () {
 
     $middleware = new CheckBannedIp(
         app(IpBanService::class),
-        app(\App\Services\LogService::class)
+        app(LogService::class)
     );
 
     try {
         $response = $middleware->handle($request, fn ($req) => response('ok'));
         expect($response->getStatusCode())->toBe(403);
-    } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+    } catch (HttpException $e) {
         expect($e->getStatusCode())->toBe(403);
     }
 });
@@ -45,7 +47,7 @@ test('middleware allows non-banned IPs', function () {
 
     $middleware = new CheckBannedIp(
         app(IpBanService::class),
-        app(\App\Services\LogService::class)
+        app(LogService::class)
     );
 
     $response = $middleware->handle($request, fn ($req) => response('ok'));

@@ -9,6 +9,7 @@ use App\Models\Backup;
 use App\Services\BackupRetentionService;
 use App\Services\BackupService;
 use App\Services\StorageConverter;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -60,7 +61,7 @@ class AppController extends Controller
             abort(403);
         }
 
-        /** @var \Illuminate\Database\Eloquent\Collection<int, Backup> $backups */
+        /** @var Collection<int, Backup> $backups */
         $backups = $app->backups()->latest()->get();
 
         return Inertia::render('Apps/Show', [

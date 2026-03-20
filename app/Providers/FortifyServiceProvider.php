@@ -10,6 +10,7 @@ use Illuminate\Auth\Events\Failed;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -111,7 +112,7 @@ class FortifyServiceProvider extends ServiceProvider
             $banned = $ipBanService->recordFailedLogin(request());
 
             if ($banned) {
-                \Illuminate\Support\Facades\Log::channel('database')->alert('Login blocked due to IP ban', [
+                Log::channel('database')->alert('Login blocked due to IP ban', [
                     'category' => 'security',
                     'email' => request()->input('email'),
                 ]);

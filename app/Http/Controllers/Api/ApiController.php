@@ -7,12 +7,14 @@ use App\Http\Requests\StoreAppRequest;
 use App\Http\Requests\StoreBackupRequest;
 use App\Models\App;
 use App\Models\Backup;
+use App\Models\User;
 use App\Services\BackupRetentionService;
 use App\Services\BackupService;
 use App\Services\IpBanService;
 use App\Services\ScriptGeneratorService;
 use App\Services\StorageConverter;
 use App\Services\TelegramNotificationService;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -38,7 +40,7 @@ class ApiController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        $user = \App\Models\User::where('email', $request->email)->first();
+        $user = User::where('email', $request->email)->first();
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
             $this->ipBanService->recordFailedLogin($request);
@@ -98,7 +100,7 @@ class ApiController extends Controller
             abort(403);
         }
 
-        /** @var \Illuminate\Database\Eloquent\Collection<int, Backup> $backups */
+        /** @var Collection<int, Backup> $backups */
         $backups = $app->backups()->latest()->get();
 
         return response()->json(

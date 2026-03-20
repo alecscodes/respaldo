@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 class App extends Model
 {
@@ -106,7 +107,7 @@ class App extends Model
         };
     }
 
-    private function isWeeklyBackupMissed(\Illuminate\Support\Carbon $lastBackup, \Illuminate\Support\Carbon $today): bool
+    private function isWeeklyBackupMissed(Carbon $lastBackup, Carbon $today): bool
     {
         if (empty($this->backup_days)) {
             return false;
@@ -119,7 +120,7 @@ class App extends Model
             && $lastBackup->lt($today);
     }
 
-    private function isMonthlyBackupMissed(\Illuminate\Support\Carbon $lastBackup, \Illuminate\Support\Carbon $today): bool
+    private function isMonthlyBackupMissed(Carbon $lastBackup, Carbon $today): bool
     {
         return $today->day === 1 && $lastBackup->lt($today);
     }

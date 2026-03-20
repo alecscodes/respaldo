@@ -6,6 +6,7 @@ use App\Models\App;
 use App\Models\Backup;
 use App\Services\DiskSpaceService;
 use App\Services\StorageConverter;
+use Illuminate\Database\Eloquent\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -17,7 +18,7 @@ class DashboardController extends Controller
     {
         $diskSpace = $this->diskSpaceService->getBackupDiskSpace();
 
-        /** @var \Illuminate\Database\Eloquent\Collection<int, Backup> $latestBackupsCollection */
+        /** @var Collection<int, Backup> $latestBackupsCollection */
         $latestBackupsCollection = Backup::where('user_id', auth()->id())
             ->with('app:id,name')
             ->latest()

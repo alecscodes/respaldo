@@ -89,7 +89,7 @@ test('checkForUpdates handles fetch failure', function () {
 
 test('checkForUpdates handles exceptions gracefully', function () {
     Process::fake(function () {
-        throw new \Exception('Unexpected error');
+        throw new Exception('Unexpected error');
     });
 
     $result = $this->service->checkForUpdates();

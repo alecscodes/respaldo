@@ -4,6 +4,7 @@ use App\Models\App;
 use App\Models\Backup;
 use App\Models\Setting;
 use App\Services\BackupRetentionService;
+use App\Services\LogService;
 use App\Services\TelegramNotificationService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
@@ -28,7 +29,7 @@ test('applyRetentionForApp returns empty result when app has no retention policy
 
     $service = new BackupRetentionService(
         app(TelegramNotificationService::class),
-        app(\App\Services\LogService::class)
+        app(LogService::class)
     );
 
     $result = $service->applyRetentionForApp($app);
@@ -62,7 +63,7 @@ test('applyRetentionForApp deletes backups older than retention_days', function 
 
     $service = new BackupRetentionService(
         app(TelegramNotificationService::class),
-        app(\App\Services\LogService::class)
+        app(LogService::class)
     );
 
     $result = $service->applyRetentionForApp($app);
@@ -94,7 +95,7 @@ test('applyRetentionForApp respects retention_count and keeps newest backups', f
 
     $service = new BackupRetentionService(
         app(TelegramNotificationService::class),
-        app(\App\Services\LogService::class)
+        app(LogService::class)
     );
 
     $result = $service->applyRetentionForApp($app);
@@ -121,7 +122,7 @@ test('applyRetentionForApp sends notification when backups are deleted', functio
 
     $service = new BackupRetentionService(
         app(TelegramNotificationService::class),
-        app(\App\Services\LogService::class)
+        app(LogService::class)
     );
 
     $service->applyRetentionForApp($app);
@@ -151,7 +152,7 @@ test('applyRetentionForApp does not send notification when no backups are delete
 
     $service = new BackupRetentionService(
         app(TelegramNotificationService::class),
-        app(\App\Services\LogService::class)
+        app(LogService::class)
     );
 
     $service->applyRetentionForApp($app);
@@ -198,7 +199,7 @@ test('applyRetentionForAllApps processes all apps with retention policies', func
 
     $service = new BackupRetentionService(
         app(TelegramNotificationService::class),
-        app(\App\Services\LogService::class)
+        app(LogService::class)
     );
 
     $result = $service->applyRetentionForAllApps();
@@ -227,7 +228,7 @@ test('applyRetentionForApp handles missing files gracefully', function () {
 
     $service = new BackupRetentionService(
         app(TelegramNotificationService::class),
-        app(\App\Services\LogService::class)
+        app(LogService::class)
     );
 
     $result = $service->applyRetentionForApp($app);

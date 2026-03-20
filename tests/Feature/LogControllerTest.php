@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\App;
 use App\Models\Log;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -118,8 +119,8 @@ test('index filters logs by user', function () {
 });
 
 test('index filters logs by app', function () {
-    $app1 = \App\Models\App::factory()->create(['user_id' => $this->user->id]);
-    $app2 = \App\Models\App::factory()->create(['user_id' => $this->user->id]);
+    $app1 = App::factory()->create(['user_id' => $this->user->id]);
+    $app2 = App::factory()->create(['user_id' => $this->user->id]);
 
     Log::factory()->create(['context' => ['app_id' => $app1->id]]);
     Log::factory()->create(['context' => ['app_id' => $app2->id]]);

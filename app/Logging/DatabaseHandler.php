@@ -7,13 +7,14 @@ use App\Models\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Monolog\Handler\AbstractProcessingHandler;
+use Monolog\Level;
 use Monolog\LogRecord;
 
 class DatabaseHandler extends AbstractProcessingHandler
 {
     public function __construct(
         private ?Request $request = null,
-        int|string|\Monolog\Level $level = \Monolog\Level::Debug,
+        int|string|Level $level = Level::Debug,
         bool $bubble = true
     ) {
         parent::__construct($level, $bubble);

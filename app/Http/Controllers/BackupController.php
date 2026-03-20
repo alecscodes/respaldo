@@ -13,7 +13,9 @@ use App\Services\BackupRetentionService;
 use App\Services\BackupService;
 use App\Services\StorageConverter;
 use App\Services\TelegramNotificationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -27,7 +29,7 @@ class BackupController extends Controller
         protected BackupRetentionService $retentionService
     ) {}
 
-    public function index(App $app): \Illuminate\Http\JsonResponse
+    public function index(App $app): JsonResponse
     {
         $this->authorizeApp($app);
 
@@ -42,7 +44,7 @@ class BackupController extends Controller
         );
     }
 
-    public function store(StoreBackupRequest $request, App $app): RedirectResponse|\Illuminate\Http\JsonResponse
+    public function store(StoreBackupRequest $request, App $app): RedirectResponse|JsonResponse
     {
         $this->authorizeApp($app);
 
@@ -111,7 +113,7 @@ class BackupController extends Controller
         return Storage::disk('backups')->download($backup->file_path, $backup->filename);
     }
 
-    public function destroy(Backup $backup): RedirectResponse|\Illuminate\Http\JsonResponse
+    public function destroy(Backup $backup): RedirectResponse|JsonResponse
     {
         if ($backup->user_id !== auth()->id()) {
             $this->log('warning', 'security', 'Unauthorized backup deletion attempt', ['backup_id' => $backup->id]);
@@ -131,7 +133,7 @@ class BackupController extends Controller
             : redirect()->back()->with('success', 'Backup deleted successfully.');
     }
 
-    public function initChunkUpload(InitChunkUploadRequest $request, App $app): \Illuminate\Http\JsonResponse
+    public function initChunkUpload(InitChunkUploadRequest $request, App $app): JsonResponse
     {
         $this->authorizeApp($app);
 
@@ -175,7 +177,7 @@ class BackupController extends Controller
         ], 201);
     }
 
-    public function uploadChunk(UploadChunkRequest $request, App $app): \Illuminate\Http\JsonResponse
+    public function uploadChunk(UploadChunkRequest $request, App $app): JsonResponse
     {
         $this->authorizeApp($app);
 
@@ -234,7 +236,7 @@ class BackupController extends Controller
         }
     }
 
-    public function finalizeChunkUpload(FinalizeChunkUploadRequest $request, App $app): \Illuminate\Http\JsonResponse
+    public function finalizeChunkUpload(FinalizeChunkUploadRequest $request, App $app): JsonResponse
     {
         $this->authorizeApp($app);
 
@@ -321,7 +323,7 @@ class BackupController extends Controller
         }
     }
 
-    public function chunkUploadStatus(App $app, string $uploadId): \Illuminate\Http\JsonResponse
+    public function chunkUploadStatus(App $app, string $uploadId): JsonResponse
     {
         $this->authorizeApp($app);
 
@@ -379,10 +381,10 @@ class BackupController extends Controller
      * Return error response based on request type.
      */
     protected function errorResponse(
-        \Illuminate\Http\Request $request,
+        Request $request,
         string $message,
         array $data = []
-    ): RedirectResponse|\Illuminate\Http\JsonResponse {
+    ): RedirectResponse|JsonResponse {
         if ($request->wantsJson()) {
             return response()->json(array_merge(['error' => $message], $data), 400);
         }

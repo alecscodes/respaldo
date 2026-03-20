@@ -8,7 +8,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\ChunkUpload>
+ * @extends Factory<ChunkUpload>
  */
 class ChunkUploadFactory extends Factory
 {

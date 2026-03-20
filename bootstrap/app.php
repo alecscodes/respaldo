@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AllowLargeUploads;
 use App\Http\Middleware\BlockBots;
 use App\Http\Middleware\CheckBannedIp;
 use App\Http\Middleware\HandleAppearance;
@@ -10,7 +11,9 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\Middleware\ValidatePostSize;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -25,12 +28,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         // Remove ValidatePostSize middleware to allow unlimited uploads
-        $middleware->remove(\Illuminate\Http\Middleware\ValidatePostSize::class);
+        $middleware->remove(ValidatePostSize::class);
 
         // Block bots and crawlers first
         $middleware->web(prepend: [
             BlockBots::class,
-            \App\Http\Middleware\AllowLargeUploads::class,
+            AllowLargeUploads::class,
             CheckBannedIp::class,
         ]);
 
@@ -43,18 +46,18 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->api(prepend: [
             BlockBots::class,
-            \App\Http\Middleware\AllowLargeUploads::class,
+            AllowLargeUploads::class,
             CheckBannedIp::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Ensure API requests return JSON errors
-        $exceptions->renderable(function (\Throwable $e, Request $request) {
+        $exceptions->renderable(function (Throwable $e, Request $request) {
             if ($request->is('api/*')) {
                 $statusCode = $e instanceof HttpException ? $e->getStatusCode() : 500;
 
                 $level = $statusCode >= 500 ? 'error' : 'warning';
-                \Illuminate\Support\Facades\Log::channel('database')->{$level}('API exception', [
+                Log::channel('database')->{$level}('API exception', [
                     'category' => 'api',
                     'exception' => class_basename($e),
                     'message' => $e->getMessage(),
@@ -82,7 +85,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if (str_starts_with($path, 'storage/')) {
                 $filePath = storage_path('app/public/'.ltrim(substr($path, 8), '/'));
                 if (! file_exists($filePath) && $service->shouldBanPath($path)) {
-                    \Illuminate\Support\Facades\Log::channel('database')->warning('Suspicious path access attempt', [
+                    Log::channel('database')->warning('Suspicious path access attempt', [
                         'category' => 'security',
                         'path' => $path,
                         'type' => 'non-existent storage file',
@@ -92,7 +95,7 @@ return Application::configure(basePath: dirname(__DIR__))
                     return response('Access denied', 403);
                 }
             } elseif ($e instanceof NotFoundHttpException && ! $request->route() && $service->shouldBanPath($path)) {
-                \Illuminate\Support\Facades\Log::channel('database')->warning('Suspicious route access attempt', [
+                Log::channel('database')->warning('Suspicious route access attempt', [
                     'category' => 'security',
                     'path' => $path,
                     'type' => 'non-existent route',

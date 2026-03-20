@@ -81,7 +81,7 @@ test('does not send notification when telegram is not configured', function () {
 test('handles notification failure gracefully', function () {
     // Simulate a network exception
     Http::fake(function () {
-        throw new \Exception('Network error');
+        throw new Exception('Network error');
     });
 
     $app = App::factory()->create([

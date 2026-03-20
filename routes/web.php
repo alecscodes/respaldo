@@ -5,6 +5,7 @@ use App\Http\Controllers\BackupController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LogController;
 use App\Http\Controllers\ScriptController;
+use App\Models\Setting;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -15,7 +16,7 @@ Route::get('/', function () {
     }
 
     return Inertia::render('Welcome', [
-        'canRegister' => Features::enabled(Features::registration()) && \App\Models\Setting::isRegistrationAllowed(),
+        'canRegister' => Features::enabled(Features::registration()) && Setting::isRegistrationAllowed(),
     ]);
 })->name('home');
 
