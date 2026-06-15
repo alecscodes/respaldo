@@ -59,9 +59,11 @@ cd respaldo
 
 The `deploy.sh` script will:
 
-- Set up `.env` and prompt for `APP_URL`
-- Ask you to choose between **Docker** or **Standard** deployment (first time only)
-- Remember your choice for future deployments (automatically updates if already installed)
+- Create `.env` from `.env.example` if missing
+- Start Docker containers (when Docker is available) or deploy directly on the host
+- Run `php artisan app:deploy` (git sync, dependencies, migrations, optimization)
+
+To update an existing installation, run `./deploy.sh` or `php artisan app:deploy`.
 
 ## ✨ Features
 
@@ -236,22 +238,16 @@ Patterns work the same as `.gitignore`.
 
 ### 🔄 Automatic Updates
 
-Respaldo automatically checks for and applies updates every minute via the Laravel scheduler:
+Respaldo checks for and applies updates every five minutes via the Laravel scheduler:
 
-- **Autonomous updates**: The application checks for new commits from the Git repository every minute
-- **Smart skipping**: Updates are skipped if no new commits are available
-- **Docker support**: Commands run correctly in Docker environments via shell execution
-- **Update process**: Automatically pulls changes, installs dependencies, builds assets, runs migrations, and optimizes cache
-
-You can also manually trigger an update:
-
-```bash
-php artisan git:update
-```
+- **Lightweight checks**: uses `git ls-remote` (no `git fetch` on every check)
+- **Smart skipping**: updates are skipped when the local commit matches remote
+- **Auto-updates**: `app:deploy --if-outdated` runs every five minutes via the scheduler
+- **Manual update**: run `./deploy.sh` or `php artisan app:deploy`
 
 ### 📋 Log Retention
 
-Pulse automatically cleans up old logs daily. Critical logs are kept for 365 days, while debug logs are kept for 7 days. Retention periods are configurable per log level via settings.
+Respaldo automatically cleans up old logs daily. Critical logs are kept for 365 days, while debug logs are kept for 7 days. Retention periods are configurable per log level via settings.
 
 ```bash
 php artisan logs:cleanup              # Clean up old logs
@@ -268,7 +264,8 @@ Respaldo includes several helpful Artisan commands:
 
 | Command | Description |
 |---------|-------------|
-| `php artisan git:update` | Manually trigger application update from Git repository (runs automatically every minute) |
+| `php artisan app:deploy` | Deploy the application (git sync, dependencies, migrations, optimization) |
+| `php artisan app:deploy --if-outdated` | Deploy only when remote has new commits (runs automatically every five minutes) |
 | `php artisan ip:unban <ip>` | Unban a specific IP address |
 | `php artisan ip:unban --all` | Unban all banned IP addresses |
 | `php artisan backups:check-missed` | Check for missed backups and send alerts (runs automatically every hour) |

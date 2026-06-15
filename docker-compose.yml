@@ -1,31 +1,30 @@
+x-app: &app
+  build:
+    context: .
+  image: ${COMPOSE_PROJECT_NAME:-respaldo}-app
+  restart: unless-stopped
+  env_file: .env
+  volumes:
+    - .:/var/www
+    - vendor:/var/www/vendor
+    - node_modules:/var/www/node_modules
+    - storage:/var/www/storage
+    - ${BACKUP_VOLUME:-./backups}:/var/www/backups
+  networks:
+    - app-network
+
 services:
   app:
-    build:
-      context: .
-    container_name: respaldo_app
-    restart: unless-stopped
-    entrypoint: ['/entrypoint.sh']
-    volumes:
-      - .:/var/www
-      - vendor:/var/www/vendor
-      - node_modules:/var/www/node_modules
-      - storage:/var/www/storage
-      # Mount backup volume (configurable via BACKUP_VOLUME env, defaults to ./backups)
-      - ${BACKUP_VOLUME:-./backups}:/var/www/backups
+    <<: *app
     healthcheck:
       test: ['CMD-SHELL', 'curl -f http://web:80/up || exit 1']
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 120s
-    networks:
-      - app-network
 
   web:
-    build:
-      context: .
-    container_name: respaldo_web
-    restart: unless-stopped
+    <<: *app
     entrypoint: ['/web-entrypoint.sh']
     ports:
       - '${APP_PORT:-80}:80'
@@ -37,26 +36,12 @@ services:
       - storage:/var/www/storage
     depends_on:
       - app
-    networks:
-      - app-network
 
   scheduler:
-    build:
-      context: .
-    container_name: respaldo_scheduler
-    restart: unless-stopped
+    <<: *app
     entrypoint: ['/scheduler-entrypoint.sh']
-    volumes:
-      - .:/var/www
-      - vendor:/var/www/vendor
-      - node_modules:/var/www/node_modules
-      - storage:/var/www/storage
-      # Mount backup volume (configurable via BACKUP_VOLUME env, defaults to ./backups)
-      - ${BACKUP_VOLUME:-./backups}:/var/www/backups
     depends_on:
       - app
-    networks:
-      - app-network
 
 volumes:
   vendor:
@@ -66,4 +51,3 @@ volumes:
 networks:
   app-network:
     driver: bridge
-

@@ -3,18 +3,24 @@
 node_modules
 vendor
 
-storage/logs/*
-storage/framework/cache/*
-storage/framework/sessions/*
-storage/framework/testing/*
-storage/framework/views/*
+backups
+database
+
+storage
 
 bootstrap/cache/*.php
 !bootstrap/cache/.gitignore
 
+public/build
+public/hot
+public/storage
+
 .env
 .env.*
 !.env.example
+
+.npm-cache
+.composer-cache
 
 tests
 .phpunit.cache
