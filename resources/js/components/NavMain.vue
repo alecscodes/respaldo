@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Link, usePage } from '@inertiajs/vue3';
 import {
     SidebarGroup,
     SidebarGroupLabel,
@@ -7,8 +8,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { urlIsActive } from '@/lib/utils';
-import { type NavItem } from '@/types';
-import { Link, usePage } from '@inertiajs/vue3';
+import type { NavItem } from '@/types';
 
 defineProps<{
     items: NavItem[];

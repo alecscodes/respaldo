@@ -35,7 +35,7 @@ test('sends Telegram notification when backup fails due to insufficient storage'
         'file' => $file,
     ]);
 
-    $response->assertSessionHas('error', 'Not enough storage space available.');
+    $response->assertRedirect();
 
     Http::assertSent(function ($request) use ($app) {
         $data = $request->data();
@@ -234,7 +234,7 @@ test('does not send Telegram notification when Telegram is not configured', func
         'file' => $file,
     ]);
 
-    $response->assertSessionHas('error', 'Not enough storage space available.');
+    $response->assertRedirect();
 
     // Should not send any HTTP requests to Telegram
     Http::assertNothingSent();

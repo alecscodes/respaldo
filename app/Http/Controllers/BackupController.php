@@ -13,6 +13,8 @@ use App\Services\BackupRetentionService;
 use App\Services\BackupService;
 use App\Services\StorageConverter;
 use App\Services\TelegramNotificationService;
+use App\Support\FlashToast;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,8 +35,11 @@ class BackupController extends Controller
     {
         $this->authorizeApp($app);
 
+        /** @var Collection<int, Backup> $backups */
+        $backups = $app->backups()->latest()->get();
+
         return response()->json(
-            $app->backups()->latest()->get()->map(fn (Backup $backup) => [
+            $backups->map(fn (Backup $backup) => [
                 'id' => $backup->id,
                 'filename' => $backup->filename,
                 'size' => StorageConverter::bytesToGb($backup->size),
@@ -91,9 +96,13 @@ class BackupController extends Controller
             throw $e;
         }
 
-        return $request->wantsJson()
-            ? response()->json(['message' => 'Backup created successfully.'], 201)
-            : redirect()->back()->with('success', 'Backup created successfully.');
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Backup created successfully.'], 201);
+        }
+
+        FlashToast::success('Backup created successfully.');
+
+        return redirect()->back();
     }
 
     public function download(Backup $backup): BinaryFileResponse|StreamedResponse
@@ -128,9 +137,13 @@ class BackupController extends Controller
             'filename' => $backup->filename,
         ]);
 
-        return request()->wantsJson()
-            ? response()->json(['message' => 'Backup deleted successfully.'])
-            : redirect()->back()->with('success', 'Backup deleted successfully.');
+        if (request()->wantsJson()) {
+            return response()->json(['message' => 'Backup deleted successfully.']);
+        }
+
+        FlashToast::success('Backup deleted successfully.');
+
+        return redirect()->back();
     }
 
     public function initChunkUpload(InitChunkUploadRequest $request, App $app): JsonResponse
@@ -389,6 +402,8 @@ class BackupController extends Controller
             return response()->json(array_merge(['error' => $message], $data), 400);
         }
 
-        return redirect()->back()->with('error', $message);
+        FlashToast::error($message);
+
+        return redirect()->back();
     }
 }

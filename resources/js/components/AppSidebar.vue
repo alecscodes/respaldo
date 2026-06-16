@@ -1,5 +1,14 @@
 <script setup lang="ts">
+import { Link } from '@inertiajs/vue3';
+import {
+    BookOpen,
+    FileText,
+    Github,
+    HardDrive,
+    LayoutGrid,
+} from 'lucide-vue-next';
 import NavFooter from '@/components/NavFooter.vue';
+import AppLogo from '@/components/AppLogo.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
 import {
@@ -12,17 +21,10 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { GITHUB_DOCS_URL, GITHUB_REPO_URL } from '@/lib/constants';
+import type { NavItem } from '@/types';
 import { dashboard } from '@/routes';
-import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/vue3';
-import {
-    BookOpen,
-    FileText,
-    Github,
-    HardDrive,
-    LayoutGrid,
-} from 'lucide-vue-next';
-import AppLogo from './AppLogo.vue';
+import { index as appsIndex } from '@/routes/apps';
+import { index as logsIndex } from '@/routes/logs';
 
 const mainNavItems: NavItem[] = [
     {
@@ -32,12 +34,12 @@ const mainNavItems: NavItem[] = [
     },
     {
         title: 'Apps',
-        href: '/apps',
+        href: appsIndex(),
         icon: HardDrive,
     },
     {
         title: 'Logs',
-        href: '/logs',
+        href: logsIndex(),
         icon: FileText,
     },
 ];

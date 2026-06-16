@@ -1,12 +1,13 @@
 <script setup lang="ts">
+import { useForm } from '@inertiajs/vue3';
+import { computed, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
-import { useForm } from '@inertiajs/vue3';
-import { computed, watch } from 'vue';
+import { store, update } from '@/routes/apps';
 
 interface Props {
     app?: {
@@ -50,6 +51,7 @@ const dayOptions = [
 const toggleDay = (day: string, checked: boolean | 'indeterminate') => {
     const isChecked = checked === true;
     const index = form.backup_days.indexOf(day);
+
     if (isChecked && index === -1) {
         form.backup_days.push(day);
     } else if (!isChecked && index > -1) {
@@ -78,9 +80,9 @@ const submit = () => {
     };
 
     if (props.app) {
-        form.put(`/apps/${props.app.id}`, submitOptions);
+        form.submit(update(props.app.id), submitOptions);
     } else {
-        form.post('/apps', submitOptions);
+        form.submit(store(), submitOptions);
     }
 };
 </script>

@@ -2,7 +2,6 @@
 
 namespace App\Logging;
 
-use App\Enums\LogCategory;
 use App\Models\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -40,8 +39,7 @@ class DatabaseHandler extends AbstractProcessingHandler
     {
         return $record->context['category']
             ?? $record->extra['category']
-            ?? $record->channel
-            ?? LogCategory::Application->value;
+            ?? $record->channel;
     }
 
     protected function formatContext(LogRecord $record): ?array

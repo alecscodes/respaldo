@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Form, Head, setLayoutProps } from '@inertiajs/vue3';
+import { computed, ref, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,10 +9,7 @@ import {
     PinInputGroup,
     PinInputSlot,
 } from '@/components/ui/pin-input';
-import AuthLayout from '@/layouts/AuthLayout.vue';
 import { store } from '@/routes/two-factor/login';
-import { Form, Head } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
 
 interface AuthConfigContent {
     title: string;
@@ -36,6 +35,17 @@ const authConfigContent = computed<AuthConfigContent>(() => {
     };
 });
 
+watch(
+    authConfigContent,
+    (content) => {
+        setLayoutProps({
+            title: content.title,
+            description: content.description,
+        });
+    },
+    { immediate: true },
+);
+
 const showRecoveryInput = ref<boolean>(false);
 
 const toggleRecoveryMode = (clearErrors: () => void): void => {
@@ -49,16 +59,13 @@ const codeValue = computed<string>(() => code.value.join(''));
 </script>
 
 <template>
-    <AuthLayout
-        :title="authConfigContent.title"
-        :description="authConfigContent.description"
-    >
+    <div>
         <Head title="Two-Factor Authentication" />
 
         <div class="space-y-6">
             <template v-if="!showRecoveryInput">
                 <Form
-                    v-bind="store.form()"
+                    :action="store()"
                     class="space-y-4"
                     reset-on-error
                     @error="code = []"
@@ -107,7 +114,7 @@ const codeValue = computed<string>(() => code.value.join(''));
 
             <template v-else>
                 <Form
-                    v-bind="store.form()"
+                    :action="store()"
                     class="space-y-4"
                     reset-on-error
                     #default="{ errors, processing, clearErrors }"
@@ -137,5 +144,5 @@ const codeValue = computed<string>(() => code.value.join(''));
                 </Form>
             </template>
         </div>
-    </AuthLayout>
+    </div>
 </template>

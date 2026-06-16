@@ -1,14 +1,20 @@
 <script setup lang="ts">
+import { Form, Head } from '@inertiajs/vue3';
 import InputError from '@/components/InputError.vue';
 import TextLink from '@/components/TextLink.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import AuthLayout from '@/layouts/AuthLayout.vue';
 import { login } from '@/routes';
 import { email } from '@/routes/password';
-import { Form, Head } from '@inertiajs/vue3';
+
+defineOptions({
+    layout: {
+        title: 'Forgot password',
+        description: 'Enter your email to receive a password reset link',
+    },
+});
 
 defineProps<{
     status?: string;
@@ -16,10 +22,7 @@ defineProps<{
 </script>
 
 <template>
-    <AuthLayout
-        title="Forgot password"
-        description="Enter your email to receive a password reset link"
-    >
+    <div>
         <Head title="Forgot password" />
 
         <div
@@ -30,7 +33,7 @@ defineProps<{
         </div>
 
         <div class="space-y-6">
-            <Form v-bind="email.form()" v-slot="{ errors, processing }">
+            <Form :action="email()" v-slot="{ errors, processing }">
                 <div class="grid gap-2">
                     <Label for="email">Email address</Label>
                     <Input
@@ -61,5 +64,5 @@ defineProps<{
                 <TextLink :href="login()">log in</TextLink>
             </div>
         </div>
-    </AuthLayout>
+    </div>
 </template>

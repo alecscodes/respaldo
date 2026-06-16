@@ -1,4 +1,14 @@
 <script setup lang="ts">
+import { Head, Link, router, setLayoutProps, useForm } from '@inertiajs/vue3';
+import {
+    ArrowLeft,
+    MoreVertical,
+    Pencil,
+    Trash,
+    Trash2,
+    Upload,
+} from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 import AppForm from '@/components/AppForm.vue';
 import BackupList from '@/components/BackupList.vue';
 import DeleteAppConfirmationDialog from '@/components/DeleteAppConfirmationDialog.vue';
@@ -20,18 +30,13 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { useLargeFileUpload } from '@/composables/useLargeFileUpload';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import type { BreadcrumbItem } from '@/types';
 import {
-    ArrowLeft,
-    MoreVertical,
-    Pencil,
-    Trash,
-    Trash2,
-    Upload,
-} from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+    applyRetention,
+    destroy,
+    index as appsIndex,
+    show,
+} from '@/routes/apps';
 
 interface App {
     id: number;
@@ -83,13 +88,15 @@ const {
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Apps',
-        href: '/apps',
+        href: appsIndex().url,
     },
     {
         title: props.app.name,
-        href: `/apps/${props.app.id}`,
+        href: show(props.app.id).url,
     },
 ];
+
+setLayoutProps({ breadcrumbs });
 
 const formatGb = (gb: number): string => {
     return `${gb.toFixed(2)} GB`;
@@ -99,6 +106,7 @@ const formatPercent = (used: number, total: number): number => {
     if (total === 0) {
         return 0;
     }
+
     return Math.round((used / total) * 100);
 };
 
@@ -107,11 +115,12 @@ const openDeleteDialog = () => {
 };
 
 const confirmDelete = () => {
-    router.delete(`/apps/${props.app.id}`);
+    router.delete(destroy(props.app.id));
 };
 
 const handleFileSelect = (event: Event) => {
     const target = event.target as HTMLInputElement;
+
     if (target.files && target.files[0]) {
         const file = target.files[0];
         uploadFile.value = file;
@@ -138,6 +147,7 @@ const handleDrop = (event: DragEvent) => {
     event.stopPropagation();
 
     const files = event.dataTransfer?.files;
+
     if (files && files.length > 0) {
         const file = files[0];
         // Check if file extension is allowed
@@ -160,6 +170,7 @@ const handleDrop = (event: DragEvent) => {
         if (hasValidExtension) {
             uploadFile.value = file;
             uploadForm.file = file;
+
             // Also update the file input
             if (fileInputRef.value) {
                 const dataTransfer = new DataTransfer();
@@ -178,7 +189,7 @@ const handleUpload = async () => {
     // Use chunked uploads for all files to ensure reliability and support for very large files (up to 2TB)
     try {
         await uploadLargeFile({
-            url: `/apps/${props.app.id}/backups`,
+            appId: props.app.id,
             file: uploadFile.value,
             onSuccess: handleUploadSuccess,
             onError: (errorMessage) => {
@@ -199,9 +210,11 @@ const handleUploadSuccess = () => {
     resetUpload();
     showUploadDialog.value = false;
     const fileInput = fileInputRef.value;
+
     if (fileInput) {
         fileInput.value = '';
     }
+
     router.reload({ only: ['backups', 'app'] });
 };
 
@@ -212,7 +225,7 @@ const handleApplyRetention = () => {
         return;
     }
 
-    applyRetentionForm.post(`/apps/${props.app.id}/apply-retention`, {
+    applyRetentionForm.submit(applyRetention(props.app.id), {
         preserveScroll: true,
         onSuccess: () => {
             router.reload({ only: ['backups', 'app'] });
@@ -249,14 +262,14 @@ const actionSheetButtons = computed(() => [
 </script>
 
 <template>
-    <Head :title="props.app.name" />
+    <div>
+        <Head :title="props.app.name" />
 
-    <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-4 p-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-4">
                     <Button variant="ghost" size="icon" as-child>
-                        <Link href="/apps">
+                        <Link :href="appsIndex()">
                             <ArrowLeft class="h-4 w-4" />
                         </Link>
                     </Button>
@@ -585,5 +598,5 @@ const actionSheetButtons = computed(() => [
                 />
             </ActionSheetRoot>
         </div>
-    </AppLayout>
+    </div>
 </template>

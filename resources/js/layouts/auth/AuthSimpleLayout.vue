@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import AppLogoIcon from '@/components/AppLogoIcon.vue';
-import FlashToasts from '@/components/common/FlashToasts.vue';
-import { home } from '@/routes';
 import { Link } from '@inertiajs/vue3';
+import AppLogoIcon from '@/components/AppLogoIcon.vue';
+import { home } from '@/routes';
 
 defineProps<{
     title?: string;
@@ -40,6 +39,5 @@ defineProps<{
                 <slot />
             </div>
         </div>
-        <FlashToasts />
     </div>
 </template>

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Button } from '@/components/ui/button';
 import { router } from '@inertiajs/vue3';
 import { Download, Trash2 } from 'lucide-vue-next';
+import { Button } from '@/components/ui/button';
+import { destroy, download as downloadBackupRoute } from '@/routes/backups';
 
 interface Backup {
     id: number;
@@ -21,6 +22,7 @@ const formatGb = (gb: number): string => {
     if (gb < 0.01) {
         return '< 0.01 GB';
     }
+
     return `${gb.toFixed(2)} GB`;
 };
 
@@ -29,12 +31,12 @@ const formatDate = (date: string): string => {
 };
 
 const downloadBackup = (backupId: number) => {
-    window.location.href = `/backups/${backupId}/download`;
+    window.location.href = downloadBackupRoute.url(backupId);
 };
 
 const deleteBackup = (backupId: number) => {
     if (confirm('Are you sure you want to delete this backup?')) {
-        router.delete(`/backups/${backupId}`, {
+        router.delete(destroy(backupId), {
             preserveScroll: true,
         });
     }

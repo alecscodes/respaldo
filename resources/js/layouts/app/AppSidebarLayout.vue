@@ -4,7 +4,7 @@ import AppFooter from '@/components/AppFooter.vue';
 import AppShell from '@/components/AppShell.vue';
 import AppSidebar from '@/components/AppSidebar.vue';
 import AppSidebarHeader from '@/components/AppSidebarHeader.vue';
-import FlashToasts from '@/components/common/FlashToasts.vue';
+import { Toaster } from '@/components/ui/sonner';
 import type { BreadcrumbItemType } from '@/types';
 
 interface Props {
@@ -26,6 +26,6 @@ withDefaults(defineProps<Props>(), {
             </div>
             <AppFooter />
         </AppContent>
-        <FlashToasts />
+        <Toaster position="top-right" rich-colors close-button />
     </AppShell>
 </template>

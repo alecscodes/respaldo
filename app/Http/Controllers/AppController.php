@@ -9,6 +9,7 @@ use App\Models\Backup;
 use App\Services\BackupRetentionService;
 use App\Services\BackupService;
 use App\Services\StorageConverter;
+use App\Support\FlashToast;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -48,7 +49,9 @@ class AppController extends Controller
             'user_id' => auth()->id(),
         ]);
 
-        return redirect()->route('apps.show', $app)->with('success', 'App created successfully.');
+        FlashToast::success('App created successfully.');
+
+        return redirect()->route('apps.show', $app);
     }
 
     public function show(App $app): Response
@@ -98,7 +101,9 @@ class AppController extends Controller
             'changes' => array_keys($validated),
         ]);
 
-        return redirect()->route('apps.show', $app)->with('success', 'App updated successfully.');
+        FlashToast::success('App updated successfully.');
+
+        return redirect()->route('apps.show', $app);
     }
 
     public function destroy(App $app): RedirectResponse
@@ -124,7 +129,9 @@ class AppController extends Controller
             'backups_deleted' => $backupCount,
         ]);
 
-        return redirect()->route('apps.index')->with('success', 'App deleted successfully.');
+        FlashToast::success('App deleted successfully.');
+
+        return redirect()->route('apps.index');
     }
 
     public function applyRetention(App $app): RedirectResponse
@@ -146,10 +153,14 @@ class AppController extends Controller
                 'freed_space' => $result['freed_space'],
             ]);
 
-            return redirect()->route('apps.show', $app)->with('success', "Deleted {$result['deleted_count']} backup(s), freed {$freedGb} GB.");
+            FlashToast::success("Deleted {$result['deleted_count']} backup(s), freed {$freedGb} GB.");
+
+            return redirect()->route('apps.show', $app);
         }
 
-        return redirect()->route('apps.show', $app)->with('success', 'No backups were deleted.');
+        FlashToast::success('No backups were deleted.');
+
+        return redirect()->route('apps.show', $app);
     }
 
     /**

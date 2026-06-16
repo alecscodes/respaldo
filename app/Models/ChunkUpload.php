@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
+/**
+ * @property array<int, int>|null $uploaded_chunks
+ */
 class ChunkUpload extends Model
 {
     use HasFactory;

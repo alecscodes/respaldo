@@ -7,6 +7,7 @@ use App\Http\Requests\SearchLogsRequest;
 use App\Models\App;
 use App\Models\Log;
 use App\Models\User;
+use App\Support\FlashToast;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
@@ -96,6 +97,8 @@ class LogController extends Controller
             ? '1 log deleted successfully.'
             : "{$count} logs deleted successfully.";
 
-        return redirect()->route('logs.index')->with('success', $message);
+        FlashToast::success($message);
+
+        return redirect()->route('logs.index');
     }
 }

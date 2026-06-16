@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { Head, Link } from '@inertiajs/vue3';
+import { AlertCircle, Github } from 'lucide-vue-next';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import { Button } from '@/components/ui/button';
 import { GITHUB_REPO_URL } from '@/lib/constants';
 import { dashboard, login, register } from '@/routes';
-import { Head, Link } from '@inertiajs/vue3';
-import { AlertCircle, Github } from 'lucide-vue-next';
 
 withDefaults(
     defineProps<{

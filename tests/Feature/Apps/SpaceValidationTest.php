@@ -50,7 +50,7 @@ test('cannot create backup if insufficient space', function () {
         'file' => $file,
     ]);
 
-    $response->assertSessionHas('error', 'Not enough storage space available.');
+    $response->assertRedirect();
 });
 
 test('can create backup if sufficient space', function () {

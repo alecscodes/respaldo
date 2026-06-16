@@ -1,7 +1,12 @@
 import { ref } from 'vue';
+import {
+    finalize,
+    init,
+    upload as uploadChunk,
+} from '@/routes/backups/chunked';
 
 interface UploadOptions {
-    url: string;
+    appId: number;
     file: File;
     chunkSize?: number;
     maxConcurrency?: number;
@@ -35,14 +40,16 @@ export function useLargeFileUpload() {
         const token = document.querySelector<HTMLMetaElement>(
             'meta[name="csrf-token"]',
         )?.content;
+
         if (!token) {
             throw new Error('CSRF token not found. Please refresh the page.');
         }
+
         return token;
     };
 
-    const uploadChunk = async (
-        appId: string,
+    const uploadChunkRequest = async (
+        appId: number,
         uploadId: string,
         chunkIndex: number,
         chunkBlob: Blob,
@@ -73,6 +80,7 @@ export function useLargeFileUpload() {
                 // Use timeout signal, but check main signal too
                 if (signal.aborted) {
                     clearTimeout(timeoutId);
+
                     throw new Error('Upload cancelled');
                 }
 
@@ -81,24 +89,22 @@ export function useLargeFileUpload() {
                     timeoutController.abort();
                 });
 
-                const chunkResponse = await fetch(
-                    `/apps/${appId}/backups/chunked/upload`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': refreshToken(),
-                            'X-Requested-With': 'XMLHttpRequest',
-                            Accept: 'application/json',
-                        },
-                        body: formData,
-                        signal: timeoutController.signal,
+                const chunkResponse = await fetch(uploadChunk.url(appId), {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': refreshToken(),
+                        'X-Requested-With': 'XMLHttpRequest',
+                        Accept: 'application/json',
                     },
-                );
+                    body: formData,
+                    signal: timeoutController.signal,
+                });
 
                 clearTimeout(timeoutId);
 
                 if (!chunkResponse.ok) {
                     const data = await chunkResponse.json().catch(() => ({}));
+
                     throw new Error(
                         data.error || `Failed to upload chunk ${chunkIndex}`,
                     );
@@ -130,7 +136,7 @@ export function useLargeFileUpload() {
     };
 
     const upload = async ({
-        url,
+        appId,
         file,
         chunkSize = DEFAULT_CHUNK_SIZE,
         maxConcurrency = DEFAULT_MAX_CONCURRENCY,
@@ -150,35 +156,26 @@ export function useLargeFileUpload() {
 
             const refreshCsrfToken = (): string => getCsrfToken();
 
-            // Extract app ID from URL
-            const appIdMatch = url.match(/\/apps\/(\d+)\//);
-            if (!appIdMatch) {
-                throw new Error('Invalid upload URL format');
-            }
-            const appId = appIdMatch[1];
-
             // Initialize upload
-            const initResponse = await fetch(
-                `/apps/${appId}/backups/chunked/init`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': refreshCsrfToken(),
-                        'X-Requested-With': 'XMLHttpRequest',
-                        Accept: 'application/json',
-                    },
-                    body: JSON.stringify({
-                        filename: file.name,
-                        total_size: file.size,
-                        chunk_size: chunkSize,
-                    }),
-                    signal,
+            const initResponse = await fetch(init.url(appId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': refreshCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    Accept: 'application/json',
                 },
-            );
+                body: JSON.stringify({
+                    filename: file.name,
+                    total_size: file.size,
+                    chunk_size: chunkSize,
+                }),
+                signal,
+            });
 
             if (!initResponse.ok) {
                 const data = await initResponse.json().catch(() => ({}));
+
                 throw new Error(
                     data.error ||
                         `Failed to initialize upload (${initResponse.status})`,
@@ -205,7 +202,7 @@ export function useLargeFileUpload() {
                     const end = Math.min(start + chunkSize, file.size);
 
                     try {
-                        await uploadChunk(
+                        await uploadChunkRequest(
                             appId,
                             uploadId,
                             chunkIndex,
@@ -245,23 +242,21 @@ export function useLargeFileUpload() {
             }
 
             // Finalize upload
-            const finalizeResponse = await fetch(
-                `/apps/${appId}/backups/chunked/finalize`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': refreshCsrfToken(),
-                        'X-Requested-With': 'XMLHttpRequest',
-                        Accept: 'application/json',
-                    },
-                    body: JSON.stringify({ upload_id: uploadId }),
-                    signal,
+            const finalizeResponse = await fetch(finalize.url(appId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': refreshCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    Accept: 'application/json',
                 },
-            );
+                body: JSON.stringify({ upload_id: uploadId }),
+                signal,
+            });
 
             if (!finalizeResponse.ok) {
                 const data = await finalizeResponse.json().catch(() => ({}));
+
                 throw new Error(data.error || 'Failed to finalize upload');
             }
 
@@ -275,6 +270,7 @@ export function useLargeFileUpload() {
             error.value = errorMessage;
             cleanup();
             onError?.(errorMessage);
+
             throw err;
         }
     };
@@ -283,6 +279,7 @@ export function useLargeFileUpload() {
         if (abortController) {
             abortController.abort();
         }
+
         cleanup();
     };
 

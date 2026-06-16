@@ -1,13 +1,19 @@
 <script setup lang="ts">
+import { Form, Head } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import AuthLayout from '@/layouts/AuthLayout.vue';
 import { update } from '@/routes/password';
-import { Form, Head } from '@inertiajs/vue3';
-import { ref } from 'vue';
+
+defineOptions({
+    layout: {
+        title: 'Reset password',
+        description: 'Please enter your new password below',
+    },
+});
 
 const props = defineProps<{
     token: string;
@@ -18,14 +24,11 @@ const inputEmail = ref(props.email);
 </script>
 
 <template>
-    <AuthLayout
-        title="Reset password"
-        description="Please enter your new password below"
-    >
+    <div>
         <Head title="Reset password" />
 
         <Form
-            v-bind="update.form()"
+            :action="update()"
             :transform="(data) => ({ ...data, token, email })"
             :reset-on-success="['password', 'password_confirmation']"
             v-slot="{ errors, processing }"
@@ -85,5 +88,5 @@ const inputEmail = ref(props.email);
                 </Button>
             </div>
         </Form>
-    </AuthLayout>
+    </div>
 </template>

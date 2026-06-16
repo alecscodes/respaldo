@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Form, Head } from '@inertiajs/vue3';
 import InputError from '@/components/InputError.vue';
 import TextLink from '@/components/TextLink.vue';
 import { Button } from '@/components/ui/button';
@@ -6,11 +7,16 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import AuthBase from '@/layouts/AuthLayout.vue';
 import { register } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
-import { Form, Head } from '@inertiajs/vue3';
+
+defineOptions({
+    layout: {
+        title: 'Log in to your account',
+        description: 'Enter your email and password below to log in',
+    },
+});
 
 defineProps<{
     status?: string;
@@ -20,10 +26,7 @@ defineProps<{
 </script>
 
 <template>
-    <AuthBase
-        title="Log in to your account"
-        description="Enter your email and password below to log in"
-    >
+    <div>
         <Head title="Log in" />
 
         <div
@@ -34,7 +37,7 @@ defineProps<{
         </div>
 
         <Form
-            v-bind="store.form()"
+            :action="store()"
             :reset-on-success="['password']"
             v-slot="{ errors, processing }"
             class="flex flex-col gap-6"
@@ -106,5 +109,5 @@ defineProps<{
                 <TextLink :href="register()" :tabindex="5">Sign up</TextLink>
             </div>
         </Form>
-    </AuthBase>
+    </div>
 </template>

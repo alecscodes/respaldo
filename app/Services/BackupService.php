@@ -147,6 +147,11 @@ class BackupService
     public function assembleChunks(ChunkUpload $chunkUpload): array
     {
         $app = $chunkUpload->app;
+
+        if (! $app instanceof App) {
+            throw new \RuntimeException('Chunk upload is missing its associated app.');
+        }
+
         $filename = $this->generateBackupFilename($app, $chunkUpload->filename);
         $finalPath = "{$app->id}/{$filename}";
         $chunksDisk = Storage::disk('chunks');

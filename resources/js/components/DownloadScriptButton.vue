@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-vue-next';
+import { Button } from '@/components/ui/button';
+import { download } from '@/routes/script';
 
 const downloadScript = () => {
-    window.location.href = '/script/download';
+    window.location.href = download.url();
 };
 </script>
 

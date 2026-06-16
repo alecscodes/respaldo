@@ -1,16 +1,17 @@
 <script setup lang="ts">
+import { Link } from '@inertiajs/vue3';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { toUrl, urlIsActive } from '@/lib/utils';
+import type { NavItem } from '@/types';
 import { edit as editAppearance } from '@/routes/appearance';
+import { index as bannedIpsIndex } from '@/routes/banned-ips';
 import { edit as editProfile } from '@/routes/profile';
 import { edit as editRegistration } from '@/routes/registration';
 import { edit as editTelegram } from '@/routes/telegram';
 import { show } from '@/routes/two-factor';
 import { edit as editPassword } from '@/routes/user-password';
-import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/vue3';
 
 const sidebarNavItems: NavItem[] = [
     {
@@ -19,7 +20,7 @@ const sidebarNavItems: NavItem[] = [
     },
     {
         title: 'Banned IPs',
-        href: '/settings/banned-ips',
+        href: bannedIpsIndex(),
     },
     {
         title: 'Telegram',

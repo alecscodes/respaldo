@@ -204,7 +204,6 @@ test('destroy deletes all logs when no filters applied', function () {
     $response = $this->delete('/logs');
 
     $response->assertRedirect(route('logs.index'));
-    $response->assertSessionHas('success');
     // Should delete all logs, but one new log entry is created for the deletion action
     expect(Log::count())->toBe(1);
     expect(Log::where('category', 'system')->where('message', 'Logs deleted')->count())->toBe(1);

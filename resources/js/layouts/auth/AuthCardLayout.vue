@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { Link } from '@inertiajs/vue3';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
-import FlashToasts from '@/components/common/FlashToasts.vue';
 import {
     Card,
     CardContent,
@@ -9,7 +9,6 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { home } from '@/routes';
-import { Link } from '@inertiajs/vue3';
 
 defineProps<{
     title?: string;
@@ -47,6 +46,5 @@ defineProps<{
                 </Card>
             </div>
         </div>
-        <FlashToasts />
     </div>
 </template>

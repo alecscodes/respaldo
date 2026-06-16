@@ -1,16 +1,5 @@
 <script setup lang="ts">
-import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { type BreadcrumbItem } from '@/types';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, setLayoutProps } from '@inertiajs/vue3';
 import {
     AlertCircle,
     CheckCircle2,
@@ -21,6 +10,17 @@ import {
     XCircle,
 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
+import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import type { BreadcrumbItem } from '@/types';
+import { destroy, index as logsIndex } from '@/routes/logs';
 
 interface Log {
     id: number;
@@ -83,9 +83,11 @@ const props = withDefaults(defineProps<Props>(), {
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Logs',
-        href: '/logs',
+        href: logsIndex().url,
     },
 ];
+
+setLayoutProps({ breadcrumbs });
 
 const searchQuery = ref(props.filters?.search || '');
 const selectedCategory = ref(props.filters?.category || '');
@@ -97,9 +99,13 @@ const selectedUser = ref(
     props.filters?.user_id ? String(props.filters.user_id) : '',
 );
 const convertToDatetimeLocal = (dateString: string): string => {
-    if (!dateString) return '';
+    if (!dateString) {
+        return '';
+    }
+
     const date = new Date(dateString);
     const pad = (n: number): string => String(n).padStart(2, '0');
+
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
@@ -125,6 +131,7 @@ const isRegexPattern = (pattern: string): boolean => {
 
     // Check for common regex metacharacters that indicate regex intent
     const regexMetachars = /[.*+?^${}[\]()|\\]/;
+
     if (!regexMetachars.test(pattern)) {
         return false;
     }
@@ -132,6 +139,7 @@ const isRegexPattern = (pattern: string): boolean => {
     // Try to compile as regex to validate
     try {
         new RegExp(pattern);
+
         return true;
     } catch {
         return false;
@@ -169,6 +177,7 @@ const applyFilters = (): void => {
 
     if (searchQuery.value) {
         params.search = searchQuery.value;
+
         if (isRegexPattern(searchQuery.value)) {
             params.use_regex = true;
         }
@@ -198,7 +207,7 @@ const applyFilters = (): void => {
         params.date_to = convertToISO(dateTo.value);
     }
 
-    router.get('/logs', params, {
+    router.visit(logsIndex({ query: params }), {
         preserveState: true,
         preserveScroll: true,
     });
@@ -213,14 +222,10 @@ const clearFilters = (): void => {
     dateFrom.value = '';
     dateTo.value = '';
 
-    router.get(
-        '/logs',
-        {},
-        {
-            preserveState: true,
-            preserveScroll: true,
-        },
-    );
+    router.visit(logsIndex(), {
+        preserveState: true,
+        preserveScroll: true,
+    });
 };
 
 const hasActiveFilters = computed(() => {
@@ -240,6 +245,7 @@ const getFilterParams = (): Record<string, string | number | boolean> => {
 
     if (searchQuery.value) {
         params.search = searchQuery.value;
+
         if (isRegexPattern(searchQuery.value)) {
             params.use_regex = true;
         }
@@ -275,7 +281,7 @@ const getFilterParams = (): Record<string, string | number | boolean> => {
 const goToPage = (page: number): void => {
     const params = getFilterParams();
     params.page = page;
-    router.get('/logs', params, {
+    router.visit(logsIndex({ query: params }), {
         preserveState: true,
         preserveScroll: false,
         onSuccess: () => {
@@ -286,7 +292,7 @@ const goToPage = (page: number): void => {
 
 const deleteLogs = (): void => {
     const params = getFilterParams();
-    router.delete('/logs', {
+    router.delete(destroy(), {
         data: params,
         preserveScroll: true,
         onSuccess: () => {
@@ -307,9 +313,9 @@ watch([searchQuery], () => {
 </script>
 
 <template>
-    <Head title="Logs" />
+    <div>
+        <Head title="Logs" />
 
-    <AppLayout :breadcrumbs="breadcrumbs">
         <div
             class="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4"
         >
@@ -699,5 +705,5 @@ watch([searchQuery], () => {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-    </AppLayout>
+    </div>
 </template>

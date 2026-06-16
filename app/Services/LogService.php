@@ -4,6 +4,16 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Log;
 
+/**
+ * @method void emergency(string $category, string $message, ?array $context = null)
+ * @method void alert(string $category, string $message, ?array $context = null)
+ * @method void critical(string $category, string $message, ?array $context = null)
+ * @method void error(string $category, string $message, ?array $context = null)
+ * @method void warning(string $category, string $message, ?array $context = null)
+ * @method void notice(string $category, string $message, ?array $context = null)
+ * @method void info(string $category, string $message, ?array $context = null)
+ * @method void debug(string $category, string $message, ?array $context = null)
+ */
 class LogService
 {
     private const VALID_LEVELS = ['emergency', 'alert', 'critical', 'error', 'warning', 'notice', 'info', 'debug'];

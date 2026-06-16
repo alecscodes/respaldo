@@ -1,4 +1,16 @@
 <script setup lang="ts">
+import type { InertiaLinkProps } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
+import {
+    BookOpen,
+    FileText,
+    Github,
+    HardDrive,
+    LayoutGrid,
+    Menu,
+    Search,
+} from 'lucide-vue-next';
+import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
@@ -32,19 +44,10 @@ import UserMenuContent from '@/components/UserMenuContent.vue';
 import { getInitials } from '@/composables/useInitials';
 import { GITHUB_DOCS_URL, GITHUB_REPO_URL } from '@/lib/constants';
 import { toUrl, urlIsActive } from '@/lib/utils';
-import { dashboard } from '@/routes';
 import type { BreadcrumbItem, NavItem } from '@/types';
-import { InertiaLinkProps, Link, usePage } from '@inertiajs/vue3';
-import {
-    BookOpen,
-    FileText,
-    Github,
-    HardDrive,
-    LayoutGrid,
-    Menu,
-    Search,
-} from 'lucide-vue-next';
-import { computed } from 'vue';
+import { dashboard } from '@/routes';
+import { index as appsIndex } from '@/routes/apps';
+import { index as logsIndex } from '@/routes/logs';
 
 interface Props {
     breadcrumbs?: BreadcrumbItem[];
@@ -77,12 +80,12 @@ const mainNavItems: NavItem[] = [
     },
     {
         title: 'Apps',
-        href: '/apps',
+        href: appsIndex(),
         icon: HardDrive,
     },
     {
         title: 'Logs',
-        href: '/logs',
+        href: logsIndex(),
         icon: FileText,
     },
 ];

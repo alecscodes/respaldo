@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import DownloadScriptButton from '@/components/DownloadScriptButton.vue';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { dashboard } from '@/routes';
-import { type BreadcrumbItem } from '@/types';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, setLayoutProps } from '@inertiajs/vue3';
 import { onClickOutside } from '@vueuse/core';
 import { ChevronDown, HardDrive } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import DownloadScriptButton from '@/components/DownloadScriptButton.vue';
+import type { BreadcrumbItem } from '@/types';
+import { dashboard } from '@/routes';
+import { show } from '@/routes/apps';
 
 interface Backup {
     id: number;
@@ -57,16 +57,21 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
+setLayoutProps({ breadcrumbs });
+
 const formatBytes = (bytes: number): string => {
     if (bytes >= 1073741824) {
         return `${(bytes / 1073741824).toFixed(2)} GB`;
     }
+
     if (bytes >= 1048576) {
         return `${(bytes / 1048576).toFixed(2)} MB`;
     }
+
     if (bytes >= 1024) {
         return `${(bytes / 1024).toFixed(2)} KB`;
     }
+
     return `${bytes} B`;
 };
 
@@ -78,12 +83,15 @@ const availableFormatted = computed(() =>
 
 const percentageColor = computed(() => {
     const percentage = props.backupDiskSpace.percentage_used;
+
     if (percentage >= 90) {
         return 'bg-red-500';
     }
+
     if (percentage >= 75) {
         return 'bg-yellow-500';
     }
+
     return 'bg-green-500';
 });
 
@@ -91,6 +99,7 @@ const formatGb = (gb: number): string => {
     if (gb < 0.01) {
         return '< 0.01 GB';
     }
+
     return `${gb.toFixed(2)} GB`;
 };
 
@@ -107,9 +116,9 @@ onClickOutside(instructionsRef, () => {
 </script>
 
 <template>
-    <Head title="Dashboard" />
+    <div>
+        <Head title="Dashboard" />
 
-    <AppLayout :breadcrumbs="breadcrumbs">
         <div
             class="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4"
         >
@@ -399,7 +408,7 @@ onClickOutside(instructionsRef, () => {
                             <Link
                                 v-for="app in props.latestApps"
                                 :key="app.id"
-                                :href="`/apps/${app.id}`"
+                                :href="show(app.id)"
                                 class="flex items-center gap-3 rounded-lg border border-sidebar-border/50 p-3 transition-colors hover:border-sidebar-border hover:bg-sidebar-foreground/5"
                             >
                                 <HardDrive
@@ -468,7 +477,7 @@ onClickOutside(instructionsRef, () => {
                         >
                             <div>
                                 <Link
-                                    :href="`/apps/${backup.app.id}`"
+                                    :href="show(backup.app.id)"
                                     class="font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:underline"
                                 >
                                     {{ backup.app.name }}
@@ -485,5 +494,5 @@ onClickOutside(instructionsRef, () => {
                 </div>
             </div>
         </div>
-    </AppLayout>
+    </div>
 </template>

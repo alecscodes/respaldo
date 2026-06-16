@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { Head, Link, router, setLayoutProps } from '@inertiajs/vue3';
+import { HardDrive, MoreVertical, Pencil, Plus, Server } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 import AppForm from '@/components/AppForm.vue';
 import { ActionSheet, ActionSheetRoot } from '@/components/ui/action-sheet';
 import { Button } from '@/components/ui/button';
@@ -17,11 +20,8 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router } from '@inertiajs/vue3';
-import { HardDrive, MoreVertical, Pencil, Plus, Server } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import type { BreadcrumbItem } from '@/types';
+import { index as appsIndex, show } from '@/routes/apps';
 
 interface App {
     id: number;
@@ -41,9 +41,11 @@ const props = defineProps<Props>();
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Apps',
-        href: '/apps',
+        href: appsIndex().url,
     },
 ];
+
+setLayoutProps({ breadcrumbs });
 
 const showCreateDialog = ref(false);
 const showEditDialog = ref(false);
@@ -59,6 +61,7 @@ const formatPercent = (used: number, total: number): number => {
     if (total === 0) {
         return 0;
     }
+
     return Math.round((used / total) * 100);
 };
 
@@ -89,7 +92,7 @@ const actionSheetButtons = computed(() => {
             icon: HardDrive,
             handler: () => {
                 showActionSheet.value = false;
-                router.visit(`/apps/${actionSheetApp.value!.id}`);
+                router.visit(show(actionSheetApp.value!.id));
             },
         },
         {
@@ -105,9 +108,9 @@ const actionSheetButtons = computed(() => {
 </script>
 
 <template>
-    <Head title="Apps" />
+    <div>
+        <Head title="Apps" />
 
-    <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-4 p-4">
             <div class="flex items-center justify-between">
                 <div>
@@ -181,7 +184,7 @@ const actionSheetButtons = computed(() => {
                         <div class="flex items-start justify-between gap-2">
                             <div class="min-w-0 flex-1">
                                 <Link
-                                    :href="`/apps/${app.id}`"
+                                    :href="show(app.id)"
                                     class="block transition-colors hover:text-primary"
                                 >
                                     <CardTitle class="text-lg">{{
@@ -270,7 +273,7 @@ const actionSheetButtons = computed(() => {
                         <!-- Desktop: Show buttons -->
                         <div class="hidden gap-2 md:flex">
                             <Button as-child variant="outline" class="flex-1">
-                                <Link :href="`/apps/${app.id}`">
+                                <Link :href="show(app.id)">
                                     <HardDrive class="mr-2 h-4 w-4" />
                                     View Details
                                 </Link>
@@ -325,5 +328,5 @@ const actionSheetButtons = computed(() => {
                 />
             </ActionSheetRoot>
         </div>
-    </AppLayout>
+    </div>
 </template>
