@@ -59,11 +59,12 @@ cd respaldo
 
 The `deploy.sh` script will:
 
+- Pull latest code from `origin/main`
 - Create `.env` from `.env.example` if missing
-- Start Docker containers (when Docker is available) or deploy directly on the host
-- Run `php artisan app:deploy` (git sync, dependencies, migrations, optimization)
+- Start Docker containers (when Docker is available) or deploy directly on the host with cron
+- Run migrations and optimization
 
-To update an existing installation, run `./deploy.sh` or `php artisan app:deploy`.
+To update an existing installation, run `./deploy.sh`. Auto-updates run every five minutes via cron (`./deploy.sh --if-outdated`).
 
 ## ✨ Features
 
@@ -78,7 +79,7 @@ To update an existing installation, run `./deploy.sh` or `php artisan app:deploy
 - 🔐 **Two-factor authentication** for enhanced security
 - 🌙 **Dark mode** for comfortable monitoring
 - 📱 **Mobile-first responsive design** - manage backups from anywhere
-- 🔄 **Automatic updates** - updates run automatically every minute via scheduler
+- **🔄 Automatic updates** - `./deploy.sh --if-outdated` runs every five minutes via cron
 - 🗑️ **Backup retention** - automatically delete old backups by age or count, runs automatically when space is insufficient
 
 ---
@@ -145,20 +146,20 @@ php artisan ip:unban --all
 
 ### 💾 Backup Volume Configuration
 
-The `BACKUP_VOLUME` environment variable controls where backups and the database are stored:
+The `BACKUP_VOLUME` environment variable controls where backups are stored in Docker:
 
-- **When `BACKUP_VOLUME` is set:** Backups and SQLite database are stored in the specified directory
-- **When `BACKUP_VOLUME` is not set:** Backups go to `./backups`, database to `database/database.sqlite`
+- **Docker**: backups are mounted at `/var/www/backups`; SQLite is stored at `{BACKUP_VOLUME}/database/database.sqlite`
+- **Host (no Docker)**: backups use `BACKUP_VOLUME` from `.env` (defaults to `./backups`); database stays at `database/database.sqlite`
 
-This allows you to keep all application data (backups + database) in a single location, which is especially useful when using external storage or network-attached storage.
+This allows you to keep backup data on external or network-attached storage while the application code stays in the project directory.
 
 **Configure in `.env`:**
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `APP_URL` | ✅ Yes | - | Full URL of your application |
-| `APP_PORT` | ❌ No | `8000` | Application port (Docker only) |
-| `BACKUP_VOLUME` | ❌ No | `./backups` | Backup storage path (when set, SQLite database is also stored here) |
+| `APP_PORT` | ❌ No | `80` | Application port (Docker only) |
+| `BACKUP_VOLUME` | ❌ No | `./backups` | Backup storage path on the host |
 
 ### 📢 CLI Script Usage
 
@@ -238,12 +239,14 @@ Patterns work the same as `.gitignore`.
 
 ### 🔄 Automatic Updates
 
-Respaldo checks for and applies updates every five minutes via the Laravel scheduler:
+Respaldo checks for and applies updates every five minutes via cron:
 
-- **Lightweight checks**: uses `git ls-remote` (no `git fetch` on every check)
-- **Smart skipping**: updates are skipped when the local commit matches remote
-- **Auto-updates**: `app:deploy --if-outdated` runs every five minutes via the scheduler
-- **Manual update**: run `./deploy.sh` or `php artisan app:deploy`
+- **Lightweight checks**: `git fetch` only when the deploy cron runs
+- **Smart skipping**: updates are skipped when the local commit matches `origin/main`
+- **Auto-updates**: `./deploy.sh --if-outdated` runs every five minutes via cron
+- **Manual update**: run `./deploy.sh`
+
+> 📋 Requires a git clone on the server with network access to `origin`.
 
 ### 📋 Log Retention
 
@@ -254,8 +257,6 @@ php artisan logs:cleanup              # Clean up old logs
 php artisan logs:cleanup --dry-run    # Preview what would be deleted
 ```
 
-> 📋 Requires Git repository with configured remote.
-
 ---
 
 ## 🔧 Artisan Commands
@@ -264,8 +265,6 @@ Respaldo includes several helpful Artisan commands:
 
 | Command | Description |
 |---------|-------------|
-| `php artisan app:deploy` | Deploy the application (git sync, dependencies, migrations, optimization) |
-| `php artisan app:deploy --if-outdated` | Deploy only when remote has new commits (runs automatically every five minutes) |
 | `php artisan ip:unban <ip>` | Unban a specific IP address |
 | `php artisan ip:unban --all` | Unban all banned IP addresses |
 | `php artisan backups:check-missed` | Check for missed backups and send alerts (runs automatically every hour) |
