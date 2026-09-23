@@ -10,6 +10,7 @@ Artisan::command('inspire', function () {
 
 Schedule::command('backups:check-missed')->hourly();
 Schedule::command('backups:cleanup-stale-chunks')->hourly();
+Schedule::command('database:snapshot')->hourly();
 Schedule::command('logs:cleanup')->daily();
 
 Schedule::command('queue:work --stop-when-empty --max-time=50')->everyMinute()->withoutOverlapping(5);

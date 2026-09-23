@@ -28,6 +28,7 @@
 - [Quick Start](#-quick-start)
   - [Docker](#-docker)
   - [Hosting](#-hosting)
+  - [Restore on a new server](#️-restore-on-a-new-server)
 - [Features](#-features)
 - [Usage](#-usage)
 - [Configuration](#️-configuration)
@@ -116,6 +117,20 @@ php artisan reload
 ```
 
 Something broken after an update? Run `php artisan optimize:clear`, then `php artisan optimize`.
+
+### ♻️ Restore on a new server
+
+Every hour the database is copied to the backups folder as `database.sqlite`. If the server dies, connect the backup disk to a new server and:
+
+1. Run the install steps up to `migrate`, but use the `APP_KEY` from the old server (keep it in your password manager; without it two-factor login stops working) and set `BACKUP_VOLUME` to the backup disk.
+2. Copy the database back, then continue with `migrate`:
+
+   ```bash
+   # Docker
+   docker compose run --rm app cp /app/backups/database.sqlite /app/storage/app/database.sqlite
+   # Hosting (BACKUP_VOLUME=/mnt/backups)
+   cp /mnt/backups/database.sqlite database/database.sqlite
+   ```
 
 ## ✨ Features
 
