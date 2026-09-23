@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import AppContent from '@/components/AppContent.vue';
-import AppFooter from '@/components/AppFooter.vue';
 import AppShell from '@/components/AppShell.vue';
 import AppSidebar from '@/components/AppSidebar.vue';
 import AppSidebarHeader from '@/components/AppSidebarHeader.vue';
@@ -24,7 +23,6 @@ withDefaults(defineProps<Props>(), {
             <div class="flex-1">
                 <slot />
             </div>
-            <AppFooter />
         </AppContent>
         <Toaster position="top-right" rich-colors close-button />
     </AppShell>

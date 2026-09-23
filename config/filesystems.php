@@ -63,12 +63,6 @@ return [
         'backups' => [
             'driver' => 'local',
             'root' => (function () {
-                // Docker: use /var/www/backups if available
-                if (file_exists('/.dockerenv') && file_exists('/var/www/backups')) {
-                    return '/var/www/backups';
-                }
-
-                // Use BACKUP_VOLUME from .env if set, otherwise use private storage
                 $backupVolume = env('BACKUP_VOLUME');
                 if ($backupVolume) {
                     return str_starts_with($backupVolume, '/')

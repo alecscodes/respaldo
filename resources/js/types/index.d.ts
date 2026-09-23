@@ -22,7 +22,6 @@ export type AppPageProps<
 > = T & {
     name: string;
     quote: { message: string; author: string };
-    commit: string | null;
     auth: Auth;
     sidebarOpen: boolean;
 };

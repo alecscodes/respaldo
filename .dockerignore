@@ -6,7 +6,7 @@ vendor
 backups
 database/*.sqlite*
 
-storage/app/backups
+storage/app/*
 storage/logs/*
 storage/pail/*
 storage/framework/cache/*
