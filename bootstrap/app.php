@@ -3,6 +3,7 @@
 use App\Http\Middleware\AllowLargeUploads;
 use App\Http\Middleware\BlockBots;
 use App\Http\Middleware\CheckBannedIp;
+use App\Http\Middleware\CloudflareClientIp;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ThrottleFailedLogins;
@@ -25,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
+        $middleware->prepend(CloudflareClientIp::class);
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         $middleware->remove(ValidatePostSize::class);
