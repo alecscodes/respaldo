@@ -64,7 +64,7 @@ docker compose up -d --wait
 docker compose exec app php artisan optimize
 ```
 
-The app runs on port 80. To use another port, set `APP_PORT` in `.env`.
+The app runs on port 80. To use another port, set `APP_PORT` in `.env`. To cap memory per container, set `APP_MEMORY_LIMIT` (e.g. `1g`).
 
 **Update**
 
@@ -224,6 +224,7 @@ This allows you to keep backup data on external or network-attached storage whil
 |----------|----------|---------|-------------|
 | `APP_URL` | ✅ Yes | - | Full URL of your application |
 | `APP_PORT` | ❌ No | `80` | Application port (Docker only) |
+| `APP_MEMORY_LIMIT` | ❌ No | unlimited | Memory limit per container, e.g. `1g` (Docker only) |
 | `BACKUP_VOLUME` | ❌ No | `./backups` | Backup storage path on the host |
 
 ### 📢 CLI Script Usage
