@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Prunable;
 
 class FailedLoginAttempt extends Model
 {
+    use Prunable;
+
     protected $fillable = [
         'ip_address',
         'email',
@@ -19,6 +23,14 @@ class FailedLoginAttempt extends Model
             'attempts_count' => 'integer',
             'last_attempt_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Attempts older than 90 days are deleted by the daily model:prune run.
+     */
+    public function prunable(): Builder
+    {
+        return static::where('last_attempt_at', '<', now()->subDays(90));
     }
 
     /**

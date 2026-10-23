@@ -199,6 +199,8 @@ Respaldo automatically bans IPs for suspicious activity:
 - Accessing non-existent routes (e.g., `/wp-admin`)
 - Automatically detects and bans related IPs (client, forwarded, proxy, server)
 
+Bans expire after 90 days (`ip:unban --expired` runs daily).
+
 **Unban commands:**
 
 ```bash
@@ -322,6 +324,7 @@ Respaldo includes several helpful Artisan commands:
 |---------|-------------|
 | `php artisan ip:unban <ip>` | Unban a specific IP address |
 | `php artisan ip:unban --all` | Unban all banned IP addresses |
+| `php artisan ip:unban --expired` | Unban IPs banned more than 90 days ago |
 | `php artisan backups:check-missed` | Check for missed backups and send alerts (runs automatically every hour) |
 | `php artisan backups:apply-retention` | Manually apply backup retention policies for all apps |
 | `php artisan backups:apply-retention --app=1` | Manually apply retention policy for a specific app |

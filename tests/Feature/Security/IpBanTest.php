@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\CheckBannedIp;
+use App\Models\FailedLoginAttempt;
 use App\Models\User;
 use App\Services\IpBanService;
 use Illuminate\Http\Request;
@@ -227,6 +228,28 @@ test('artisan command unban all IPs', function () {
         ->assertSuccessful();
 
     expect(DB::table('banned_ips')->count())->toBe(0);
+});
+
+test('artisan command unbans only expired IPs', function () {
+    DB::table('banned_ips')->insert([
+        ['ip' => '203.0.113.1', 'reason' => 'Test', 'created_at' => now()->subDays(91), 'updated_at' => now()],
+        ['ip' => '203.0.113.2', 'reason' => 'Test', 'created_at' => now()->subDays(89), 'updated_at' => now()],
+    ]);
+
+    $this->artisan('ip:unban', ['--expired' => true])
+        ->expectsOutput('Unbanned 1 expired IP address(es).')
+        ->assertSuccessful();
+
+    expect(DB::table('banned_ips')->pluck('ip')->all())->toBe(['203.0.113.2']);
+});
+
+test('failed login attempts older than 90 days are pruned', function () {
+    FailedLoginAttempt::create(['ip_address' => '203.0.113.1', 'email' => 'old@example.com', 'last_attempt_at' => now()->subDays(91)]);
+    FailedLoginAttempt::create(['ip_address' => '203.0.113.2', 'email' => 'recent@example.com', 'last_attempt_at' => now()->subDays(89)]);
+
+    $this->artisan('model:prune', ['--model' => [FailedLoginAttempt::class]])->assertSuccessful();
+
+    expect(FailedLoginAttempt::pluck('email')->all())->toBe(['recent@example.com']);
 });
 
 test('artisan command validates IP address', function () {

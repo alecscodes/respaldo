@@ -12,6 +12,8 @@ class IpBanService
 
     private const int MAX_LOGIN_ATTEMPTS = 2;
 
+    private const int BAN_DAYS = 90;
+
     public function __construct(
         protected LogService $logService
     ) {}
@@ -111,6 +113,19 @@ class IpBanService
     {
         $ips = DB::table('banned_ips')->pluck('ip');
         $count = DB::table('banned_ips')->delete();
+
+        foreach ($ips as $ip) {
+            Cache::forget("banned_ip_{$ip}");
+        }
+
+        return $count;
+    }
+
+    public function unbanExpired(): int
+    {
+        $cutoff = now()->subDays(self::BAN_DAYS);
+        $ips = DB::table('banned_ips')->where('created_at', '<', $cutoff)->pluck('ip');
+        $count = DB::table('banned_ips')->where('created_at', '<', $cutoff)->delete();
 
         foreach ($ips as $ip) {
             Cache::forget("banned_ip_{$ip}");
